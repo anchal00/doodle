@@ -11,9 +11,9 @@ type Repository interface {
 	CloseConnection() error
 	GetGameById(gameId string) Game
 	GetGamePlayerByName(gameId, playerName string) Player
-	CreateNewGame(gameId, player string) Game
-	AddPlayerToGame(gameId, playerName string) (Game, Player)
-	UpdatePlayerScore(gameId, playerName string, scoreDelta uint8)
+	CreateNewGame(gameId, player string, maxPlayers, totalRounds uint8) error
+	AddPlayerToGame(gameId, playerName string) error
+	UpdatePlayerScore(gameId, playerName string, scoreDelta uint8) error
 }
 
 func SetupDB(dbName string) (Repository, error) {

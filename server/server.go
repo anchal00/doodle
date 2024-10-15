@@ -1,8 +1,8 @@
 package server
 
 import (
-	"doodle/log"
 	"doodle/db"
+	"doodle/log"
 	"doodle/parser"
 	"doodle/utils"
 	"fmt"
@@ -47,11 +47,18 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		s.Logger.Error("Failed to parse new game request", slog.String("error", err.Error()))
 		return
 	}
-  gameId := utils.GetRandomGameId(6)
-  // gameId could possibly be duplicate, fix this
-  s.Logger.Info(fmt.Sprintf("game id %s", gameId))
-  s.Db.CreateNewGame(gameId , gameRequest.Player)
-  s.Logger.Info(fmt.Sprintf("%v", gameRequest))
+	gameId := utils.GetRandomGameId(6)
+	// gameId could possibly be duplicate, fix this
+	s.Logger.Info(fmt.Sprintf("game id %s", gameId))
+	var MAX_ALLOWED_PLAYERS uint8 = 4
+	max_players := min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
+  err = s.Db.CreateNewGame(gameId, gameRequest.Player, max_players, gameRequest.TotalRounds)
+  if err != nil {
+    writer.WriteHeader(400)
+    s.Logger.Error("CreateNewGame request failed") 
+    return
+  }
+  s.Logger.Info("CreateNewGame request processed successfully") 
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
