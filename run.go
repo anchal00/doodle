@@ -1,38 +1,17 @@
 package main
 
 import (
-	"doodle/server/apis/v1"
-	"log/slog"
-	"net/http"
-	"os"
+	"doodle/server"
 
-	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
-const HTTP_API_V1_PREFIX = "/api/v1"
-
-func getLogger() *slog.Logger {
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level:     slog.LevelInfo,
-		AddSource: true,
-	})
-	logger := slog.New(handler)
-	return logger
-}
-
 func main() {
-	server := &server.GameAPIServer{Logger: getLogger()}
-	router := mux.NewRouter().PathPrefix(HTTP_API_V1_PREFIX).Subrouter()
-
-	router.HandleFunc("/game", server.CreateNewGame).Methods("POST")
-	router.HandleFunc("/game/{gameId:[a-z]+}", server.JoinGame).Methods("POST")
-
-	router.HandleFunc("/push", server.HandleClientPush)
-
+	godotenv.Load()
 	// TODO: Accept port via args
-	server.Logger.Info("Starting server on port 9000")
-	if err := http.ListenAndServe(":9000", router); err != nil {
-		server.Logger.Error("Failed to start server on port 9000", slog.String("error", err.Error()))
+	gs, err := server.NewGameServer("9000")
+	if err != nil {
 		return
 	}
+	gs.Run()
 }

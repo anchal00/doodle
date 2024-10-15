@@ -1,0 +1,25 @@
+package db
+
+import (
+	logger "doodle/log"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+type Repository interface {
+	SetupConnection(database string) error
+	CloseConnection() error
+	GetGameById(gameId string) Game
+	GetGamePlayerByName(gameId, playerName string) Player
+	CreateNewGame(gameId, player string) Game
+	AddPlayerToGame(gameId, playerName string) (Game, Player)
+	UpdatePlayerScore(gameId, playerName string, scoreDelta uint8)
+}
+
+func SetupDB(dbName string) (Repository, error) {
+	var repository Repository = &SqliteStore{
+		Logger: logger.NewLogger("database"),
+	}
+	err := repository.SetupConnection(dbName)
+	return repository, err
+}
