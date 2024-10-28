@@ -52,7 +52,9 @@ func (s *GameServer) Run() {
 	signal.Notify(sigtermHandler, os.Interrupt)
 	go func() {
 		<-sigtermHandler
-		s.Logger.Debug("Shutting down server....")
+		s.Logger.Info("Shutting down server....")
+		s.Db.CloseConnection()
+		s.Logger.Info("Goodbye !")
 		os.Exit(0)
 	}()
 	if err := http.ListenAndServe(":9000", s.router); err != nil {
@@ -75,7 +77,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	gameId := utils.GetRandomGameId(6)
-	// gameId could possibly be duplicate, fix this
+	// TODO: gameId could possibly be duplicate, fix this
 	s.Logger.Info(fmt.Sprintf("game id %s", gameId))
 	var MAX_ALLOWED_PLAYERS uint8 = 4
 	max_players := min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)

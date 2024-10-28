@@ -45,8 +45,13 @@ func (s *SqliteStore) SetupConnection(dbname string) error {
 	return nil
 }
 
-func (s *SqliteStore) CloseConnection() error {
-	return s.Conn.Close()
+func (s *SqliteStore) CloseConnection() {
+	s.Logger.Info("Closing database connection")
+	if err := s.Conn.Close(); err != nil {
+		s.Logger.Error("Failed to tear down database connection")
+		return
+	}
+	s.Logger.Info("Database connection closed successfully")
 }
 
 func (s *SqliteStore) GetGameById(gameId string) Game {
