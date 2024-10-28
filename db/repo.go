@@ -58,31 +58,31 @@ func (s *SqliteStore) GetGamePlayerByName(gameId, playerName string) Player {
 }
 
 func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRounds uint8) error {
-  txn, err := s.Conn.Beginx()
-  if err != nil {
+	txn, err := s.Conn.Beginx()
+	if err != nil {
 		s.Logger.Error("Failed to create new game", slog.String("error", err.Error()))
 		return err
-  }
+	}
 	createGameSQL := `INSERT INTO games(game_id, max_players, total_rounds) VALUES(?, ?, ?);`
 	_, err = txn.Exec(createGameSQL, gameId, maxPlayers, totalRounds)
 	if err != nil {
 		s.Logger.Error("Failed to create new game", slog.String("error", err.Error()))
-    txn.Rollback()
+		txn.Rollback()
 		return err
 	}
 	s.Logger.Info("Game created successfully")
-  insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
-  _, err = txn.Exec(insertPlayerSQL, player, gameId, true)
-  if err != nil {
+	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
+	_, err = txn.Exec(insertPlayerSQL, player, gameId, true)
+	if err != nil {
 		s.Logger.Error("Failed to save player", slog.String("error", err.Error()))
-    errRoll := txn.Rollback()
-    if errRoll != nil {
-      s.Logger.Error("Failed to rollback", slog.String("error", errRoll.Error()))
-      return errRoll
-    }
+		errRoll := txn.Rollback()
+		if errRoll != nil {
+			s.Logger.Error("Failed to rollback", slog.String("error", errRoll.Error()))
+			return errRoll
+		}
 		return err
-  }
-  txn.Commit()
+	}
+	txn.Commit()
 	return nil
 }
 
