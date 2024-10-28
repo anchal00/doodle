@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -46,7 +47,14 @@ func (s *GameServer) ReadRequestBody(request *http.Request) ([]byte, error) {
 
 func (s *GameServer) Run() {
 	s.Logger.Info("Starting server on port 9000")
-	// TODO: Handle SIGINT and gracefully shutdown the server
+	// TODO: Handle SIGTERM and gracefully shutdown the server
+	sigtermHandler := make(chan os.Signal, 1)
+	signal.Notify(sigtermHandler, os.Interrupt)
+	go func() {
+		<-sigtermHandler
+		s.Logger.Debug("Shutting down server....")
+		os.Exit(0)
+	}()
 	if err := http.ListenAndServe(":9000", s.router); err != nil {
 		s.Logger.Error("Failed to start server on port 9000", slog.String("error", err.Error()))
 		return
@@ -84,7 +92,6 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
-	// wssConn := s.UpgradeToWebsocket(writer, request)
 	s.Logger.Info("Player is joining a game")
 	data, err := s.ReadRequestBody(request)
 	if err != nil {
@@ -102,7 +109,7 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		writer.WriteHeader(400)
 		return
 	}
-	writer.WriteHeader(201)
+	writer.WriteHeader(200)
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
