@@ -47,7 +47,6 @@ func (s *GameServer) ReadRequestBody(request *http.Request) ([]byte, error) {
 
 func (s *GameServer) Run() {
 	s.Logger.Info("Starting server on port 9000")
-	// TODO: Handle SIGTERM and gracefully shutdown the server
 	sigtermHandler := make(chan os.Signal, 1)
 	signal.Notify(sigtermHandler, os.Interrupt)
 	go func() {
