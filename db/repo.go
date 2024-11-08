@@ -72,8 +72,12 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 	_, err = txn.Exec(createGameSQL, gameId, maxPlayers, totalRounds)
 	if err != nil {
 		s.Logger.Error("Failed to create new game", slog.String("error", err.Error()))
-		txn.Rollback()
-		return err
+		errRoll := txn.Rollback()
+		if errRoll != nil {
+			s.Logger.Error("Failed to rollback", slog.String("error", errRoll.Error()))
+			return errRoll
+		}
+    return err
 	}
 	s.Logger.Info("Game created successfully")
 	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
@@ -87,8 +91,7 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 		}
 		return err
 	}
-	txn.Commit()
-	return nil
+	return txn.Commit()
 }
 
 func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
