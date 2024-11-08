@@ -24,6 +24,7 @@ type GameServer struct {
 	port        string
 	wssUpgrader websocket.Upgrader
 	router      *mux.Router
+	ConnStore   *ConnectionStore
 }
 
 func (s *GameServer) UpgradeToWebsocket(writer http.ResponseWriter, request *http.Request) *websocket.Conn {
@@ -46,32 +47,36 @@ func (s *GameServer) ReadRequestBody(request *http.Request) ([]byte, error) {
 }
 
 func (s *GameServer) Run() {
-	s.Logger.Info("Starting server on port 9000")
+	s.Logger.Info(fmt.Sprintf("Starting server on port %s", s.port))
 	sigtermHandler := make(chan os.Signal, 1)
 	signal.Notify(sigtermHandler, os.Interrupt)
 	go func() {
 		<-sigtermHandler
-		s.Logger.Info("Shutting down server....")
-		s.Db.CloseConnection()
-		s.Logger.Info("Goodbye !")
+		s.Shutdown()
 		os.Exit(0)
 	}()
-	if err := http.ListenAndServe(":9000", s.router); err != nil {
-		s.Logger.Error("Failed to start server on port 9000", slog.String("error", err.Error()))
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", s.port), s.router); err != nil {
+		s.Logger.Error(fmt.Sprintf("Failed to start server on port %s", s.port), slog.String("error", err.Error()))
 		return
 	}
+}
+
+func (s *GameServer) Shutdown() {
+	s.Logger.Info("Shutting down server....")
+	s.Db.CloseConnection()
+	s.Logger.Info("Goodbye !")
 }
 
 func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Request) {
 	s.Logger.Info("Player is creating a new game")
 	data, err := s.ReadRequestBody(request)
 	if err != nil {
-		writer.WriteHeader(400)
+		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	gameRequest, err := parser.ParseCreateGameRequest(data)
 	if err != nil {
-		writer.WriteHeader(400)
+		writer.WriteHeader(http.StatusBadRequest)
 		s.Logger.Error("Failed to parse new game request", slog.String("error", err.Error()))
 		return
 	}
@@ -82,46 +87,57 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	max_players := min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
 	err = s.Db.CreateNewGame(gameId, gameRequest.Player, max_players, gameRequest.TotalRounds)
 	if err != nil {
-		writer.WriteHeader(400)
+		writer.WriteHeader(http.StatusBadRequest)
 		s.Logger.Error("CreateNewGame request failed")
 		return
 	}
 	// TODO: The player who created the game needs to connect via ws now
 	// to be able to receieve updates of the others joining etc.
 	s.Logger.Info("CreateNewGame request processed successfully")
-	writer.WriteHeader(201)
+	writer.WriteHeader(http.StatusCreated)
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
 	s.Logger.Info("Player is joining a game")
+	gameId := request.PathValue("gameId")
 	data, err := s.ReadRequestBody(request)
 	if err != nil {
-		writer.WriteHeader(400)
+		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	joinGameRequest, err := parser.ParseJoinGameRequest(data)
 	if err != nil {
 		s.Logger.Error("Failed to parse join game request", slog.String("error", err.Error()))
-		writer.WriteHeader(400)
+		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if err := s.Db.AddPlayerToGame(joinGameRequest.GameId, joinGameRequest.Player); err != nil {
-		s.Logger.Error("Failed to persist joinee's info")
-		writer.WriteHeader(400)
+	if err := s.Db.AddPlayerToGame(gameId, joinGameRequest.Player); err != nil {
+		s.Logger.Error("Failed to process join game request")
+		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	writer.WriteHeader(200)
+	writer.WriteHeader(http.StatusOK)
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
 	s.Logger.Info("Player is sending a update")
+	gameId := request.PathValue("gameId")
 	// TODO: Authorize player
 	wssConn := s.UpgradeToWebsocket(writer, request)
+	joinGameRequest := &parser.JoinGameRequest{}
+	if err := wssConn.ReadJSON(joinGameRequest); err != nil {
+		s.Logger.Error("Cannot connect to game, bad payload")
+		wssConn.Close()
+		return
+	}
+	s.ConnStore.AddConnection(joinGameRequest.Player, gameId, wssConn)
 	for {
 		inputData := &parser.GamePlayerInput{}
 		// TODO: Validate input
 		if err := wssConn.ReadJSON(inputData); err != nil {
 			s.Logger.Info("Player disconnected")
+			// Delete from Db
+			// Delete from ConnectionStore
 			return
 		}
 		s.Logger.Info("Received data from a player")
@@ -141,10 +157,11 @@ func NewGameServer(port string) (*GameServer, error) {
 		wssUpgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
-		router: router,
+		router:    router,
+		ConnStore: NewConnectionStore(),
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
-	router.HandleFunc("/push", gs.HandlePlayerInput)
+	router.HandleFunc("/connect/game/{gameId:[a-z]+}", gs.HandlePlayerInput)
 	return gs, nil
 }

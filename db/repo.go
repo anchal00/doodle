@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/jmoiron/sqlx"
@@ -15,10 +16,12 @@ var schema = `CREATE TABLE IF NOT EXISTS games (
 );
 
 CREATE TABLE IF NOT EXISTS players (
-  name varchar(10),
+  name varchar(10) NOT NULL,
   game_id varchar(8) REFERENCES games(game_id) ON DELETE CASCADE,
   is_active boolean NOT NULL,
   PRIMARY KEY (name, game_id)
+
+  CONSTRAINT non_empty_player CHECK (TRIM(name) <> '')
 );
 
 CREATE TABLE IF NOT EXISTS scores (
@@ -41,7 +44,7 @@ func (s *SqliteStore) SetupConnection(dbname string) error {
 	}
 	s.Conn = db
 	s.Conn.MustExec(schema)
-	s.Logger.Info("Database setup complete")
+	s.Logger.Info(fmt.Sprintf("Database %s setup successfully", sqlite_dbfile))
 	return nil
 }
 
@@ -92,6 +95,12 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 }
 
 func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
+	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
+	_, err := s.Conn.Exec(insertPlayerSQL, playerName, gameId, true)
+	if err != nil {
+		s.Logger.Error("Failed to add player to game", slog.String("error", err.Error()))
+	}
+	s.Logger.Info("Player added to the game successfully")
 	return nil
 }
 

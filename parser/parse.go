@@ -5,9 +5,9 @@ import (
 )
 
 type CreateGameRequest struct {
-	Player         string
-	MaxPlayerCount uint8
-	TotalRounds    uint8
+	Player         string `json:"player,omitempty"`
+	MaxPlayerCount uint8  `json:"max_players,omitempty"`
+	TotalRounds    uint8  `json:"total_rounds,omitempty"`
 }
 
 func ParseCreateGameRequest(data []byte) (*CreateGameRequest, error) {
@@ -20,8 +20,7 @@ func ParseCreateGameRequest(data []byte) (*CreateGameRequest, error) {
 }
 
 type JoinGameRequest struct {
-	GameId string
-	Player string
+	Player string `json:"player,omitempty"`
 }
 
 func ParseJoinGameRequest(data []byte) (*JoinGameRequest, error) {
@@ -34,8 +33,8 @@ func ParseJoinGameRequest(data []byte) (*JoinGameRequest, error) {
 }
 
 type GamePlayerInput struct {
-	Player string
-	GameId string
-	Xcoord uint8
-	Ycoord uint8
+	Player string `json:"player,omitempty"`
+	GameId string `json:"game_id,omitempty"`
+	Xcoord uint8  `json:"x_cord,omitempty"`
+	Ycoord uint8  `json:"y_cord,omitempty"`
 }

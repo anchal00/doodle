@@ -3,6 +3,7 @@ package main
 import (
 	"doodle/server"
 	"log/slog"
+	"os"
 
 	"github.com/joho/godotenv"
 )
@@ -14,7 +15,12 @@ func main() {
 		return
 	}
 	// TODO: Accept port via args
-	gs, err := server.NewGameServer("9000")
+	port := os.Getenv("DOODLE_PORT")
+	if err != nil {
+		slog.Error("Env DOODLE_PORT not set")
+		return
+	}
+	gs, err := server.NewGameServer(port)
 	if err != nil {
 		return
 	}
