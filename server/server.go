@@ -94,14 +94,18 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	}
 	// TODO: The player who created the game needs to connect via ws now
 	// to be able to receieve updates of the others joining etc.
-	s.Logger.Info("CreateNewGame request processed successfully")
 	respBody, err := json.Marshal(parser.CreateGameResponse{GameId: gameId})
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	writer.WriteHeader(http.StatusCreated)
-	writer.Write(respBody)
+  _, err = writer.Write(respBody)
+  if err != nil {
+    s.Logger.Info("Failed to write response for CreateNewGame request", slog.String("error", err.Error()))
+    return
+  }
+  s.Logger.Info("CreateNewGame request processed successfully")
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {

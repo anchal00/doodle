@@ -9,7 +9,7 @@ type Game struct {
 }
 
 type Player struct {
-	name      string `db:"name"`
+	Name      string `db:"name"`
 	GameId    string `db:"game_id"`
-	is_active bool   `db:"is_active"`
+	Is_active bool   `db:"is_active"`
 }
