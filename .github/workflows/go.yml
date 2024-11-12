@@ -41,8 +41,8 @@ jobs:
         - uses: actions/setup-go@v5
           with:
             go-version: '1.23.x'
-            timeout: 2m
         - name: golangci-lint
-          uses:g olangci/golangci-lint-action@v6
+          uses:golangci/golangci-lint-action@v6
           with:
             version: v1.60
+            timeout: 2m
