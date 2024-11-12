@@ -18,6 +18,7 @@ import (
 )
 
 const HTTP_API_V1_PREFIX = "/api/v1"
+const MAX_ALLOWED_PLAYERS = 5
 
 type GameServer struct {
 	Db          db.Repository
@@ -84,7 +85,6 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	gameId := utils.GetRandomGameId(6)
 	// TODO: gameId could possibly be duplicate, fix this
 	s.Logger.Info(fmt.Sprintf("game id %s", gameId))
-	var MAX_ALLOWED_PLAYERS uint8 = 5
 	max_players := min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
 	err = s.Db.CreateNewGame(gameId, gameRequest.Player, max_players, gameRequest.TotalRounds)
 	if err != nil {

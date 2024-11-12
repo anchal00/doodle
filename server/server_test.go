@@ -97,10 +97,44 @@ func TestGamePlayHappyFlow(t *testing.T) {
 	assert.NotNil(t, gameId, "Failed to extract game id from CreateGame response body")
 	// Add players to game
 	for player := 1; player <= 4; player += 1 {
-		addPlayer1RequestBody, err := json.Marshal(parser.JoinGameRequest{Player: fmt.Sprintf("player%d", player)})
+		addPlayerRequestBody, err := json.Marshal(parser.JoinGameRequest{Player: fmt.Sprintf("player%d", player)})
 		assert.Nil(t, err, "Failed to create AddPlayer request body")
-		resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayer1RequestBody))
+		resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
 		assert.Nil(t, err, "Failed to execute AddPlayer api call")
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "Failed to add new player to the game")
 	}
+}
+
+func TestPlayerLimitExhausted(t *testing.T) {
+	// Create new game
+	createGameRequestBody, err := json.Marshal(map[string]any{
+		"player":       "rookie",
+		"max_players":  7, // Max player limit is capped at 5 players, see `MAX_ALLOWED_PLAYERS` in server.go
+		"total_rounds": 2,
+	})
+	assert.Nil(t, err, "Failed to create CreateGame request body")
+	resp, err := ApiCall("POST", "/game", bytes.NewBuffer(createGameRequestBody))
+	assert.Nil(t, err, "Failed to execute CreateGame api call")
+	assert.Equal(t, http.StatusCreated, resp.StatusCode, "Failed to create new game")
+	respBody, err := readResponseBody(resp)
+	assert.Nil(t, err, "Failed to read CreateGame response body")
+	createGameResponse := &parser.CreateGameResponse{}
+	err = json.Unmarshal(respBody, &createGameResponse)
+	gameId := createGameResponse.GameId
+	assert.Nil(t, err, "Failed to deserialize CreateGame response body")
+	assert.NotNil(t, gameId, "Failed to extract game id from CreateGame response body")
+	// Add players to game
+	for player := 1; player <= 4; player += 1 {
+		addPlayerRequestBody, err := json.Marshal(parser.JoinGameRequest{Player: fmt.Sprintf("player%d", player)})
+		assert.Nil(t, err, "Failed to create AddPlayer request body")
+		resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
+		assert.Nil(t, err, "Failed to execute AddPlayer api call")
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Failed to add new player to the game")
+	}
+  // Adding more players should be disallowed as we have added 5 players (including the player who had created the game)
+  addPlayerRequestBody, err := json.Marshal(parser.JoinGameRequest{Player: "playerlast"})
+  assert.Nil(t, err, "Failed to create AddPlayer request body")
+  resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
+  assert.Nil(t, err, "Failed to execute AddPlayer api call")
+  assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Player limit has been exhausted, expected the join request to be rejected")
 }
