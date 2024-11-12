@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"doodle/parser"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -67,16 +68,39 @@ func ApiCall(method, path string, requestBody io.Reader) (*http.Response, error)
 	return resp, nil
 }
 
-func TestGamePlay(t *testing.T) {
+func readResponseBody(response *http.Response) ([]byte, error) {
+	bodyReader := response.Body
+	bytesRead, err := io.ReadAll(bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	return bytesRead, nil
+}
+
+func TestGamePlayHappyFlow(t *testing.T) {
 	// Create new game
 	createGameRequestBody, err := json.Marshal(map[string]any{
 		"player":       "rookie",
-		"max_players":  6,
+		"max_players":  5,
 		"total_rounds": 4,
 	})
-	assert.Nil(t, err, "Failed to Create request body")
+	assert.Nil(t, err, "Failed to create CreateGame request body")
 	resp, err := ApiCall("POST", "/game", bytes.NewBuffer(createGameRequestBody))
 	assert.Nil(t, err, "Failed to execute CreateGame api call")
-	assert.Equal(t, http.StatusCreated, resp.StatusCode, "Failed to execute CreateGame api call")
+	assert.Equal(t, http.StatusCreated, resp.StatusCode, "Failed to create new game")
+	respBody, err := readResponseBody(resp)
+	assert.Nil(t, err, "Failed to read CreateGame response body")
+	createGameResponse := &parser.CreateGameResponse{}
+	err = json.Unmarshal(respBody, &createGameResponse)
+	gameId := createGameResponse.GameId
+	assert.Nil(t, err, "Failed to deserialize CreateGame response body")
+	assert.NotNil(t, gameId, "Failed to extract game id from CreateGame response body")
 	// Add players to game
+	for player := 1; player <= 4; player += 1 {
+		addPlayer1RequestBody, err := json.Marshal(parser.JoinGameRequest{Player: fmt.Sprintf("player%d", player)})
+		assert.Nil(t, err, "Failed to create AddPlayer request body")
+		resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayer1RequestBody))
+		assert.Nil(t, err, "Failed to execute AddPlayer api call")
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Failed to add new player to the game")
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"doodle/log"
 	"doodle/parser"
 	"doodle/utils"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -83,7 +84,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	gameId := utils.GetRandomGameId(6)
 	// TODO: gameId could possibly be duplicate, fix this
 	s.Logger.Info(fmt.Sprintf("game id %s", gameId))
-	var MAX_ALLOWED_PLAYERS uint8 = 4
+	var MAX_ALLOWED_PLAYERS uint8 = 5
 	max_players := min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
 	err = s.Db.CreateNewGame(gameId, gameRequest.Player, max_players, gameRequest.TotalRounds)
 	if err != nil {
@@ -94,12 +95,18 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	// TODO: The player who created the game needs to connect via ws now
 	// to be able to receieve updates of the others joining etc.
 	s.Logger.Info("CreateNewGame request processed successfully")
+	respBody, err := json.Marshal(parser.CreateGameResponse{GameId: gameId})
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	writer.WriteHeader(http.StatusCreated)
+	writer.Write(respBody)
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
-	s.Logger.Info("Player is joining a game")
-	gameId := request.PathValue("gameId")
+	gameId := mux.Vars(request)["gameId"]
+	s.Logger.Info(fmt.Sprintf("Player is joining game %s", gameId))
 	data, err := s.ReadRequestBody(request)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
@@ -108,6 +115,17 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 	joinGameRequest, err := parser.ParseJoinGameRequest(data)
 	if err != nil {
 		s.Logger.Error("Failed to parse join game request", slog.String("error", err.Error()))
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	game := s.Db.GetGameById(gameId)
+	if game == nil {
+		s.Logger.Error("Unrecognized game id", slog.String("error", err.Error()))
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if game.PlayerCount == game.MaxPlayers {
+		s.Logger.Debug("Couldn't add player to the game, capacity full")
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -120,8 +138,8 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
-	s.Logger.Info("Player is sending a update")
-	gameId := request.PathValue("gameId")
+	gameId := mux.Vars(request)["gameId"]
+  s.Logger.Info(fmt.Sprintf("Player is sending an update to game %s", gameId))
 	// TODO: Authorize player
 	wssConn := s.UpgradeToWebsocket(writer, request)
 	joinGameRequest := &parser.JoinGameRequest{}

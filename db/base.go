@@ -9,7 +9,7 @@ import (
 type Repository interface {
 	SetupConnection(database string) error
 	CloseConnection()
-	GetGameById(gameId string) Game
+	GetGameById(gameId string) *Game
 	GetGamePlayerByName(gameId, playerName string) Player
 	CreateNewGame(gameId, player string, maxPlayers, totalRounds uint8) error
 	AddPlayerToGame(gameId, playerName string) error

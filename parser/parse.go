@@ -19,6 +19,10 @@ func ParseCreateGameRequest(data []byte) (*CreateGameRequest, error) {
 	return gameRequest, err
 }
 
+type CreateGameResponse struct {
+	GameId string `json:"game_id,omitempty"`
+}
+
 type JoinGameRequest struct {
 	Player string `json:"player,omitempty"`
 }
