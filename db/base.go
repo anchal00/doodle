@@ -1,7 +1,7 @@
 package db
 
 import (
-	logger "doodle/log"
+	"doodle/logger"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -18,7 +18,7 @@ type Repository interface {
 
 func SetupDB(dbName string) (Repository, error) {
 	var repository Repository = &SqliteStore{
-		Logger: logger.NewLogger("database"),
+		Logger: logger.New("database"),
 	}
 	err := repository.SetupConnection(dbName)
 	return repository, err

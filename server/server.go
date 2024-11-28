@@ -2,13 +2,12 @@ package server
 
 import (
 	"doodle/db"
-	"doodle/log"
+	"doodle/logger"
 	"doodle/parser"
 	"doodle/utils"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,17 +21,17 @@ const MAX_ALLOWED_PLAYERS = 5
 
 type GameServer struct {
 	Db          db.Repository
-	Logger      *slog.Logger
+	Logger      logger.Logger
 	port        string
 	wssUpgrader websocket.Upgrader
-	router      *mux.Router
-	ConnStore   *ConnectionStore
+	Router      *mux.Router
+	ConnStore   ConnectionStore
 }
 
 func (s *GameServer) UpgradeToWebsocket(writer http.ResponseWriter, request *http.Request) *websocket.Conn {
 	conn, err := s.wssUpgrader.Upgrade(writer, request, nil)
 	if err != nil {
-		s.Logger.Error("Failed to upgrade to WS connection", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to upgrade to WS connection", err)
 		return nil
 	}
 	return conn
@@ -42,7 +41,7 @@ func (s *GameServer) ReadRequestBody(request *http.Request) ([]byte, error) {
 	bodyReader := request.Body
 	bytesRead, err := io.ReadAll(bodyReader)
 	if err != nil {
-		s.Logger.Error("Failed to read request body", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to read request body", err)
 		return nil, err
 	}
 	return bytesRead, nil
@@ -57,8 +56,8 @@ func (s *GameServer) Run() {
 		s.Shutdown()
 		os.Exit(0)
 	}()
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", s.port), s.router); err != nil {
-		s.Logger.Error(fmt.Sprintf("Failed to start server on port %s", s.port), slog.String("error", err.Error()))
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", s.port), s.Router); err != nil {
+		s.Logger.Error(fmt.Sprintf("Failed to start server on port %s", s.port), err)
 		return
 	}
 }
@@ -79,7 +78,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	gameRequest, err := parser.ParseCreateGameRequest(data)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
-		s.Logger.Error("Failed to parse new game request", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to parse new game request", err)
 		return
 	}
 	gameId := utils.GetRandomGameId(6)
@@ -89,7 +88,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	err = s.Db.CreateNewGame(gameId, gameRequest.Player, max_players, gameRequest.TotalRounds)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
-		s.Logger.Error("CreateNewGame request failed")
+		s.Logger.Error("CreateNewGame request failed", err)
 		return
 	}
 	// TODO: The player who created the game needs to connect via ws now
@@ -100,12 +99,12 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	writer.WriteHeader(http.StatusCreated)
-  _, err = writer.Write(respBody)
-  if err != nil {
-    s.Logger.Info("Failed to write response for CreateNewGame request", slog.String("error", err.Error()))
-    return
-  }
-  s.Logger.Info("CreateNewGame request processed successfully")
+	_, err = writer.Write(respBody)
+	if err != nil {
+		s.Logger.Info("Failed to write response for CreateNewGame request")
+		return
+	}
+	s.Logger.Info("CreateNewGame request processed successfully")
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
@@ -118,13 +117,13 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 	}
 	joinGameRequest, err := parser.ParseJoinGameRequest(data)
 	if err != nil {
-		s.Logger.Error("Failed to parse join game request", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to parse join game request", err)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	game := s.Db.GetGameById(gameId)
 	if game == nil {
-		s.Logger.Error("Unrecognized game id", slog.String("error", err.Error()))
+		s.Logger.Error("Unrecognized game id", err)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -134,7 +133,7 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		return
 	}
 	if err := s.Db.AddPlayerToGame(gameId, joinGameRequest.Player); err != nil {
-		s.Logger.Error("Failed to process join game request")
+		s.Logger.Error("Failed to process join game request", err)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -143,12 +142,12 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
 	gameId := mux.Vars(request)["gameId"]
-  s.Logger.Info(fmt.Sprintf("Player is sending an update to game %s", gameId))
+	s.Logger.Info(fmt.Sprintf("Player is sending an update to game %s", gameId))
 	// TODO: Authorize player
 	wssConn := s.UpgradeToWebsocket(writer, request)
 	joinGameRequest := &parser.JoinGameRequest{}
 	if err := wssConn.ReadJSON(joinGameRequest); err != nil {
-		s.Logger.Error("Cannot connect to game, bad payload")
+		s.Logger.Error("Cannot connect to game, bad payload", err)
 		wssConn.Close()
 		return
 	}
@@ -174,12 +173,12 @@ func NewGameServer(port string) (*GameServer, error) {
 	router := mux.NewRouter().PathPrefix(HTTP_API_V1_PREFIX).Subrouter()
 	gs := &GameServer{
 		Db:     repo,
-		Logger: logger.NewLogger("api_server"),
+		Logger: logger.New("api_server"),
 		port:   port,
 		wssUpgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
-		router:    router,
+		Router:    router,
 		ConnStore: NewConnectionStore(),
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")

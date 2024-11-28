@@ -1,8 +1,8 @@
 package db
 
 import (
+	"doodle/logger"
 	"fmt"
-	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -32,14 +32,14 @@ CREATE TABLE IF NOT EXISTS scores (
 
 type SqliteStore struct {
 	Conn   *sqlx.DB
-	Logger *slog.Logger
+	Logger logger.Logger
 }
 
 func (s *SqliteStore) SetupConnection(dbname string) error {
 	sqlite_dbfile := dbname + ".db"
 	db, err := sqlx.Connect("sqlite3", sqlite_dbfile)
 	if err != nil {
-		s.Logger.Error("Database setup failed")
+		s.Logger.Error("Database setup failed", err)
 		return err
 	}
 	s.Conn = db
@@ -51,7 +51,7 @@ func (s *SqliteStore) SetupConnection(dbname string) error {
 func (s *SqliteStore) CloseConnection() {
 	s.Logger.Info("Closing database connection")
 	if err := s.Conn.Close(); err != nil {
-		s.Logger.Error("Failed to tear down database connection")
+		s.Logger.Error("Failed to tear down database connection", err)
 		return
 	}
 	s.Logger.Info("Database connection closed successfully")
@@ -63,7 +63,7 @@ func (s *SqliteStore) GetGameById(gameId string) *Game {
 	game := &Game{}
 	err := s.Conn.Get(game, sql, gameId)
 	if err != nil {
-		s.Logger.Error("Failed to fetch game", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to fetch game", err)
 		return nil
 	}
 	return game
@@ -76,16 +76,16 @@ func (s *SqliteStore) GetGamePlayerByName(gameId, playerName string) Player {
 func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRounds uint8) error {
 	txn, err := s.Conn.Beginx()
 	if err != nil {
-		s.Logger.Error("Failed to create new game", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to create new game", err)
 		return err
 	}
 	createGameSQL := `INSERT INTO games(game_id, max_players, total_rounds) VALUES(?, ?, ?);`
 	_, err = txn.Exec(createGameSQL, gameId, maxPlayers, totalRounds)
 	if err != nil {
-		s.Logger.Error("Failed to create new game", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to create new game", err)
 		errRoll := txn.Rollback()
 		if errRoll != nil {
-			s.Logger.Error("Failed to rollback CreateGame txn", slog.String("error", errRoll.Error()))
+			s.Logger.Error("Failed to rollback CreateGame txn", errRoll)
 			return errRoll
 		}
 		return err
@@ -94,10 +94,10 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
 	_, err = txn.Exec(insertPlayerSQL, player, gameId, true)
 	if err != nil {
-		s.Logger.Error("Failed to save player", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to save player", err)
 		errRoll := txn.Rollback()
 		if errRoll != nil {
-			s.Logger.Error("Failed to rollback CreateGame txn", slog.String("error", errRoll.Error()))
+			s.Logger.Error("Failed to rollback CreateGame txn", errRoll)
 			return errRoll
 		}
 		return err
@@ -105,7 +105,7 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 
 	errCommit := txn.Commit()
 	if errCommit != nil {
-		s.Logger.Error("Failed to Commit CreateGame txn", slog.String("error", errCommit.Error()))
+		s.Logger.Error("Failed to Commit CreateGame txn", errCommit)
 		return errCommit
 	}
 	return nil
@@ -114,16 +114,16 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
 	txn, err := s.Conn.Beginx()
 	if err != nil {
-		s.Logger.Error("Failed to add player to game", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to add player to game", err)
 		return err
 	}
 	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
 	_, err = txn.Exec(insertPlayerSQL, playerName, gameId, true)
 	if err != nil {
-		s.Logger.Error("Failed to add player to game", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to add player to game", err)
 		errRoll := txn.Rollback()
 		if errRoll != nil {
-			s.Logger.Error("Failed to rollback AddPlayerToGame txn", slog.String("error", errRoll.Error()))
+			s.Logger.Error("Failed to rollback AddPlayerToGame txn", errRoll)
 			return errRoll
 		}
 		return err
@@ -132,10 +132,10 @@ func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
 	updatePlayerCountSQL := `UPDATE games SET player_count=player_count+1 WHERE game_id = ?;`
 	_, err = txn.Exec(updatePlayerCountSQL, gameId)
 	if err != nil {
-		s.Logger.Error("Failed to update player count", slog.String("error", err.Error()))
+		s.Logger.Error("Failed to update player count", err)
 		errRoll := txn.Rollback()
 		if errRoll != nil {
-			s.Logger.Error("Failed to rollback AddPlayerToGame txn", slog.String("error", errRoll.Error()))
+			s.Logger.Error("Failed to rollback AddPlayerToGame txn", errRoll)
 			return errRoll
 		}
 		return err
@@ -143,7 +143,7 @@ func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
 
 	errCommit := txn.Commit()
 	if errCommit != nil {
-		s.Logger.Error("Failed to Commit AddPlayerToGame txn", slog.String("error", errCommit.Error()))
+		s.Logger.Error("Failed to Commit AddPlayerToGame txn", errCommit)
 		return errCommit
 	}
 	return nil
