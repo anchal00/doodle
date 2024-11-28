@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -18,6 +19,7 @@ import (
 
 const HTTP_API_V1_PREFIX = "/api/v1"
 const MAX_ALLOWED_PLAYERS = 5
+const MAX_ALLOWED_ROUNDS = 5
 
 type GameServer struct {
 	Db          db.Repository
@@ -68,6 +70,16 @@ func (s *GameServer) Shutdown() {
 	s.Logger.Info("Goodbye !")
 }
 
+func isValidNewGameRequest(gameRequest parser.CreateGameRequest) bool {
+	if len(gameRequest.Player) == 0 {
+		return false
+	}
+	if gameRequest.TotalRounds < 0 || gameRequest.MaxPlayerCount < 0 {
+		return false
+	}
+	return true
+}
+
 func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Request) {
 	s.Logger.Info("Player is creating a new game")
 	data, err := s.ReadRequestBody(request)
@@ -81,11 +93,19 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		s.Logger.Error("Failed to parse new game request", err)
 		return
 	}
+	gameRequest.Player = strings.TrimSpace(gameRequest.Player)
+
+	if !isValidNewGameRequest(*gameRequest) {
+		writer.WriteHeader(http.StatusBadRequest)
+		s.Logger.Error("Bad game request", nil)
+		return
+	}
 	gameId := utils.GetRandomGameId(6)
 	// TODO: gameId could possibly be duplicate, fix this
 	s.Logger.Info(fmt.Sprintf("game id %s", gameId))
-	max_players := min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
-	err = s.Db.CreateNewGame(gameId, gameRequest.Player, max_players, gameRequest.TotalRounds)
+	gameRequest.MaxPlayerCount = min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
+	gameRequest.TotalRounds = min(MAX_ALLOWED_ROUNDS, gameRequest.TotalRounds)
+	err = s.Db.CreateNewGame(gameId, gameRequest.Player, gameRequest.MaxPlayerCount, gameRequest.TotalRounds)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
 		s.Logger.Error("CreateNewGame request failed", err)

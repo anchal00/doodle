@@ -31,8 +31,12 @@ func (dl DoodleLogger) Info(msg string) {
 }
 
 func (dl DoodleLogger) Error(msg string, err error) {
-	e := slog.String("error", err.Error())
-	dl.logger.Error(msg, e)
+	if err != nil {
+		e := slog.String("error", err.Error())
+		dl.logger.Error(msg, e)
+		return
+	}
+	dl.logger.Error(msg)
 }
 
 func (dl DoodleLogger) Debug(msg string) {
