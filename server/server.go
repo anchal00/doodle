@@ -74,9 +74,6 @@ func isValidNewGameRequest(gameRequest parser.CreateGameRequest) bool {
 	if len(gameRequest.Player) == 0 {
 		return false
 	}
-	if gameRequest.TotalRounds < 0 || gameRequest.MaxPlayerCount < 0 {
-		return false
-	}
 	return true
 }
 
