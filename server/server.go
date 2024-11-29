@@ -71,10 +71,7 @@ func (s *GameServer) Shutdown() {
 }
 
 func isValidNewGameRequest(gameRequest parser.CreateGameRequest) bool {
-	if len(gameRequest.Player) == 0 {
-		return false
-	}
-	return true
+	return len(gameRequest.Player) != 0
 }
 
 func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Request) {
