@@ -4,7 +4,7 @@ gen-mocks:
 	go generate .
 
 test:
-	go test -v ./...
+	golangci-lint run && go test -v ./...
 
 init-db:
 	touch doodle.db
