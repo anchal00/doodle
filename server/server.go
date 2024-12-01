@@ -74,6 +74,19 @@ func isValidNewGameRequest(gameRequest parser.CreateGameRequest) bool {
 	return len(gameRequest.Player) != 0
 }
 
+func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byte, status int) {
+	writer.WriteHeader(status)
+  if responseBody == nil {
+    return
+  }
+	_, err := writer.Write(responseBody)
+	if err != nil {
+		s.Logger.Info("Failed to write response body")
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
 func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Request) {
 	s.Logger.Info("Player is creating a new game")
 	data, err := s.ReadRequestBody(request)
@@ -109,17 +122,10 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	// to be able to receieve updates of the others joining etc.
 	respBody, err := json.Marshal(parser.CreateGameResponse{GameId: gameId})
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+    s.sendResponse(writer, nil, http.StatusInternalServerError)
 		return
 	}
-  writer.WriteHeader(http.StatusCreated)
-	_, err = writer.Write(respBody)
-	if err != nil {
-		s.Logger.Info("Failed to write response for CreateNewGame request")
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	s.Logger.Info("CreateNewGame request processed successfully")
+  s.sendResponse(writer, respBody, http.StatusCreated)
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
@@ -158,16 +164,10 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
 	})
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+	  s.sendResponse(writer, nil, http.StatusInternalServerError)
 		return
 	}
-	_, err = writer.Write(respBody)
-	if err != nil {
-		s.Logger.Info("Failed to write response for JoinGame request")
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	s.Logger.Info("JoinGameRequest processed successfully")
+  s.sendResponse(writer, respBody, http.StatusOK)
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
