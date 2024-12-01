@@ -151,7 +151,17 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
+  respBody, err := json.Marshal(parser.JoinGameResponse{
+    // TODO: Create and handover valid auth token
+    Token: "dummy-token",
+    GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
+  })
+  if err != nil {
+    writer.WriteHeader(http.StatusInternalServerError)
+    return
+  }
 	writer.WriteHeader(http.StatusOK)
+  writer.Write(respBody)
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {

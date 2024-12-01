@@ -27,6 +27,11 @@ type JoinGameRequest struct {
 	Player string `json:"player,omitempty"`
 }
 
+type JoinGameResponse struct {
+	Token   string `json:"token,omitempty"`
+	GameUrl string `json:"game_url,omitempty"`
+}
+
 func ParseJoinGameRequest(data []byte) (*JoinGameRequest, error) {
 	request := &JoinGameRequest{}
 	err := json.Unmarshal(data, request)

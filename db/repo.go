@@ -18,7 +18,7 @@ var schema = `CREATE TABLE IF NOT EXISTS games (
 CREATE TABLE IF NOT EXISTS players (
   name varchar(10) NOT NULL,
   game_id varchar(8) REFERENCES games(game_id) ON DELETE CASCADE,
-  is_active boolean NOT NULL,
+  is_admin boolean DEFAULT false NOT NULL,
   PRIMARY KEY (name, game_id)
 
   CONSTRAINT non_empty_player CHECK (TRIM(name) <> '')
@@ -117,8 +117,8 @@ func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
 		s.Logger.Error("Failed to add player to game", err)
 		return err
 	}
-	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
-	_, err = txn.Exec(insertPlayerSQL, playerName, gameId, true)
+	insertPlayerSQL := `INSERT INTO players(name, game_id) VALUES(?, ?);`
+	_, err = txn.Exec(insertPlayerSQL, playerName, gameId, false)
 	if err != nil {
 		s.Logger.Error("Failed to add player to game", err)
 		errRoll := txn.Rollback()
