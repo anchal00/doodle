@@ -112,10 +112,11 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	writer.WriteHeader(http.StatusCreated)
+  writer.WriteHeader(http.StatusCreated)
 	_, err = writer.Write(respBody)
 	if err != nil {
 		s.Logger.Info("Failed to write response for CreateNewGame request")
+		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	s.Logger.Info("CreateNewGame request processed successfully")
@@ -151,17 +152,22 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-  respBody, err := json.Marshal(parser.JoinGameResponse{
-    // TODO: Create and handover valid auth token
-    Token: "dummy-token",
-    GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
-  })
-  if err != nil {
-    writer.WriteHeader(http.StatusInternalServerError)
-    return
-  }
-	writer.WriteHeader(http.StatusOK)
-  writer.Write(respBody)
+	respBody, err := json.Marshal(parser.JoinGameResponse{
+		// TODO: Create and handover valid auth token
+		Token:   "dummy-token",
+		GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
+	})
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, err = writer.Write(respBody)
+	if err != nil {
+		s.Logger.Info("Failed to write response for JoinGame request")
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	s.Logger.Info("JoinGameRequest processed successfully")
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {

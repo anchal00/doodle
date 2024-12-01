@@ -82,7 +82,7 @@ func TestGameFlow(t *testing.T) {
 	assert.Nil(t, err, "Failed to read CreateGame response body")
 	createGameResponse := &parser.CreateGameResponse{}
 	err = json.Unmarshal(respBody, &createGameResponse)
-  assert.Nil(t, err, "Failed to deserialize CreateGame response body")
+	assert.Nil(t, err, "Failed to deserialize CreateGame response body")
 	gameId := createGameResponse.GameId
 	assert.NotNil(t, gameId, "Failed to extract game id from CreateGame response body")
 	// Add players to game

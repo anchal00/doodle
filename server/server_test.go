@@ -102,7 +102,7 @@ func (suite *GameServerTestSuite) TestCreateNewGame() {
 			suite.Nil(err, "Failed to read CreateGame response body")
 			createGameResponse := parser.CreateGameResponse{}
 			err = json.Unmarshal(respBody, &createGameResponse)
-      suite.Nil(err, "Failed to deserialize CreateGame response body")
+			suite.Nil(err, "Failed to deserialize CreateGame response body")
 			gameId := createGameResponse.GameId
 			suite.NotNil(gameId, "Failed to extract game id from CreateGame response body")
 		})
@@ -117,11 +117,11 @@ func (suite *GameServerTestSuite) TestPlayersJoin() {
 		CurrentRound: 0,
 		TotalRounds:  4,
 	}
-  joiningPlayerName := "player1"
+	joiningPlayerName := "player1"
 	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
 	suite.dbMock.On("AddPlayerToGame", mockGameObject.GameId, joiningPlayerName).Return(nil)
-  url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s", mockGameObject.GameId)
-  join_request, _ := json.Marshal(parser.JoinGameRequest{Player: joiningPlayerName})
+	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s", mockGameObject.GameId)
+	join_request, _ := json.Marshal(parser.JoinGameRequest{Player: joiningPlayerName})
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(join_request))
 	suite.Nil(err, "Failed to send JoinGameRequest")
 	suite.Equal(http.StatusOK, resp.StatusCode, "Unable to Join the requested game")
