@@ -1,5 +1,8 @@
 .PHONY: drop-db init-db gen-mocks test
 
+build:
+	go build -o bin/
+
 gen-mocks:
 	go generate .
 
