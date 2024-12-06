@@ -135,7 +135,20 @@ func (suite *GameServerTestSuite) TestPlayersJoin() {
 }
 
 func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
-
+	mockGameObject := db.Game{
+		GameId:       "xxxxxx",
+		PlayerCount:  4,
+		MaxPlayers:   4,
+		CurrentRound: 0,
+		TotalRounds:  4,
+	}
+	joiningPlayerName := "player1"
+	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
+	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s", mockGameObject.GameId)
+	join_request, _ := json.Marshal(parser.JoinGameRequest{Player: joiningPlayerName})
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(join_request))
+	suite.Nil(err, "Failed to send JoinGameRequest")
+	suite.Equal(http.StatusBadRequest, resp.StatusCode, "Unable to Join the requested game")
 }
 
 func (suite *GameServerTestSuite) TestPlayerInputs() {

@@ -76,9 +76,9 @@ func isValidNewGameRequest(gameRequest parser.CreateGameRequest) bool {
 
 func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byte, status int) {
 	writer.WriteHeader(status)
-  if responseBody == nil {
-    return
-  }
+	if responseBody == nil {
+		return
+	}
 	_, err := writer.Write(responseBody)
 	if err != nil {
 		s.Logger.Info("Failed to write response body")
@@ -122,10 +122,10 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	// to be able to receieve updates of the others joining etc.
 	respBody, err := json.Marshal(parser.CreateGameResponse{GameId: gameId})
 	if err != nil {
-    s.sendResponse(writer, nil, http.StatusInternalServerError)
+		s.sendResponse(writer, nil, http.StatusInternalServerError)
 		return
 	}
-  s.sendResponse(writer, respBody, http.StatusCreated)
+	s.sendResponse(writer, respBody, http.StatusCreated)
 }
 
 func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request) {
@@ -164,10 +164,10 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
 	})
 	if err != nil {
-	  s.sendResponse(writer, nil, http.StatusInternalServerError)
+		s.sendResponse(writer, nil, http.StatusInternalServerError)
 		return
 	}
-  s.sendResponse(writer, respBody, http.StatusOK)
+	s.sendResponse(writer, respBody, http.StatusOK)
 }
 
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
