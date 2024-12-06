@@ -109,6 +109,23 @@ func (suite *GameServerTestSuite) TestCreateNewGame() {
 	}
 }
 
+func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAndRounds() {
+	createGameRequest := parser.CreateGameRequest{
+		Player: "dummy",
+		// Even though MaxPlayerCount exceeds server.MAX_ALLOWED_PLAYERS
+		// and server.MAX_ALLOWED_ROUNDS, Game should be created with MAX_ALLOWED_PLAYERS and MAX_ALLOWED_ROUNDS
+		MaxPlayerCount: 10,
+		TotalRounds:    10,
+	}
+	url := suite.server.URL + HTTP_API_V1_PREFIX + "/game"
+	suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	createGameRequestBody, err := json.Marshal(createGameRequest)
+	suite.Nil(err, "Failed to create CreateGame request body")
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(createGameRequestBody))
+	suite.Nil(err, "Failed to execute CreateGame api call")
+	suite.Equal(http.StatusCreated, resp.StatusCode, "Failed to create new game")
+}
+
 func (suite *GameServerTestSuite) TestPlayersJoin() {
 	mockGameObject := db.Game{
 		GameId:       "xxxxxx",
