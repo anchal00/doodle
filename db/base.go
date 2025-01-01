@@ -2,7 +2,6 @@ package db
 
 import (
 	"doodle/logger"
-
 	_ "github.com/mattn/go-sqlite3"
 )
 

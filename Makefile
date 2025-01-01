@@ -3,7 +3,7 @@
 build:
 	go build -o bin/
 
-gen-mocks:
+mocks:
 	go generate .
 
 test:
@@ -13,5 +13,5 @@ init-db:
 	touch doodle.db
 
 drop-db:
-	rm doodle.db 
+	rm doodle.db
 
