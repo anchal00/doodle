@@ -6,7 +6,7 @@ import (
 	dbMock "doodle/db/mocks"
 	"doodle/logger"
 	"doodle/parser"
-	connStoreMock "doodle/server/mocks"
+	connStoreMock "doodle/state/mocks"
 	"encoding/json"
 	"fmt"
 	"io"

@@ -1,6 +1,6 @@
 //go:generate mockery --with-expecter=true --name=Repository --dir=db --output=db/mocks
 //go:generate mockery --with-expecter=true --name=Logger --dir=logger --output=logger/mocks
-//go:generate mockery  --with-expecter=true --name=ConnectionStore --dir=state --output=server/mocks
+//go:generate mockery  --with-expecter=true --name=ConnectionStore --dir=state --output=state/mocks
 package main
 
 import (
@@ -19,7 +19,7 @@ func main() {
 	}
 	// TODO: Accept port via args
 	port := os.Getenv("DOODLE_PORT")
-	if err != nil {
+	if len(port) == 0 {
 		slog.Error("Env DOODLE_PORT not set")
 		return
 	}

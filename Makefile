@@ -6,8 +6,11 @@ build:
 mocks:
 	go generate .
 
+lint:
+	golangci-lint run
+
 test:
-	golangci-lint run && go test -v ./...
+	go test -v ./...
 
 init-db:
 	touch doodle.db
