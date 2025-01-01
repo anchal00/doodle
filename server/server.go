@@ -1,14 +1,16 @@
 package server
 
 import (
+	crypto "crypto/rand"
 	"doodle/db"
 	"doodle/logger"
 	"doodle/parser"
 	"doodle/state"
-	"doodle/utils"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -90,7 +92,7 @@ func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byt
 }
 
 func (s *GameServer) attachSessionToken(writer http.ResponseWriter) error {
-	token, err := utils.CreateSessionToken()
+	token, err := createSessionToken()
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
 		s.Logger.Error("CreateNewGame request failed: Unable to create session token", err)
@@ -128,7 +130,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		s.Logger.Error("Bad game request", nil)
 		return
 	}
-	gameId := utils.GetRandomGameId(6)
+	gameId := getRandomGameId(6)
 	// TODO: gameId could possibly be duplicate, fix this
 	gameRequest.MaxPlayerCount = min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
 	gameRequest.TotalRounds = min(MAX_ALLOWED_ROUNDS, gameRequest.TotalRounds)
@@ -240,4 +242,23 @@ func NewGameServer(port string) (*GameServer, error) {
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
 	router.HandleFunc("/connect/game/{gameId:[a-z]+}", gs.HandlePlayerInput)
 	return gs, nil
+}
+
+func createSessionToken() (string, error) {
+	token := make([]byte, 32)
+	_, err := crypto.Read(token)
+	if err != nil {
+		return "", err
+	}
+	// Convert bytes to a hex string
+	return hex.EncodeToString(token), nil
+}
+
+func getRandomGameId(size int) string {
+	r := make([]byte, size)
+	for i := 0; i < size; i += 1 {
+		offset := rand.Intn(26)
+		r[i] = byte(97 + offset)
+	}
+	return string(r)
 }
