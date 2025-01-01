@@ -56,6 +56,41 @@ func (_c *ConnectionStore_AddConnection_Call) RunAndReturn(run func(string, stri
 	return _c
 }
 
+// AddSessionToken provides a mock function with given fields: player, gameId, token
+func (_m *ConnectionStore) AddSessionToken(player string, gameId string, token string) {
+	_m.Called(player, gameId, token)
+}
+
+// ConnectionStore_AddSessionToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddSessionToken'
+type ConnectionStore_AddSessionToken_Call struct {
+	*mock.Call
+}
+
+// AddSessionToken is a helper method to define mock.On call
+//   - player string
+//   - gameId string
+//   - token string
+func (_e *ConnectionStore_Expecter) AddSessionToken(player interface{}, gameId interface{}, token interface{}) *ConnectionStore_AddSessionToken_Call {
+	return &ConnectionStore_AddSessionToken_Call{Call: _e.mock.On("AddSessionToken", player, gameId, token)}
+}
+
+func (_c *ConnectionStore_AddSessionToken_Call) Run(run func(player string, gameId string, token string)) *ConnectionStore_AddSessionToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *ConnectionStore_AddSessionToken_Call) Return() *ConnectionStore_AddSessionToken_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *ConnectionStore_AddSessionToken_Call) RunAndReturn(run func(string, string, string)) *ConnectionStore_AddSessionToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetConnection provides a mock function with given fields: player, gameId
 func (_m *ConnectionStore) GetConnection(player string, gameId string) *websocket.Conn {
 	ret := _m.Called(player, gameId)
@@ -101,6 +136,53 @@ func (_c *ConnectionStore_GetConnection_Call) Return(_a0 *websocket.Conn) *Conne
 }
 
 func (_c *ConnectionStore_GetConnection_Call) RunAndReturn(run func(string, string) *websocket.Conn) *ConnectionStore_GetConnection_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetSessionToken provides a mock function with given fields: player, gameId
+func (_m *ConnectionStore) GetSessionToken(player string, gameId string) string {
+	ret := _m.Called(player, gameId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSessionToken")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(string, string) string); ok {
+		r0 = rf(player, gameId)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// ConnectionStore_GetSessionToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSessionToken'
+type ConnectionStore_GetSessionToken_Call struct {
+	*mock.Call
+}
+
+// GetSessionToken is a helper method to define mock.On call
+//   - player string
+//   - gameId string
+func (_e *ConnectionStore_Expecter) GetSessionToken(player interface{}, gameId interface{}) *ConnectionStore_GetSessionToken_Call {
+	return &ConnectionStore_GetSessionToken_Call{Call: _e.mock.On("GetSessionToken", player, gameId)}
+}
+
+func (_c *ConnectionStore_GetSessionToken_Call) Run(run func(player string, gameId string)) *ConnectionStore_GetSessionToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ConnectionStore_GetSessionToken_Call) Return(_a0 string) *ConnectionStore_GetSessionToken_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ConnectionStore_GetSessionToken_Call) RunAndReturn(run func(string, string) string) *ConnectionStore_GetSessionToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -4,6 +4,7 @@ import (
 	"doodle/db"
 	"doodle/logger"
 	"doodle/parser"
+	"doodle/state"
 	"doodle/utils"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -27,7 +29,7 @@ type GameServer struct {
 	port        string
 	wssUpgrader websocket.Upgrader
 	Router      *mux.Router
-	ConnStore   ConnectionStore
+	GameState   state.ConnectionStore
 }
 
 func (s *GameServer) UpgradeToWebsocket(writer http.ResponseWriter, request *http.Request) *websocket.Conn {
@@ -87,6 +89,25 @@ func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byt
 	}
 }
 
+func (s *GameServer) attachSessionToken(writer http.ResponseWriter) error {
+	token, err := utils.CreateSessionToken()
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		s.Logger.Error("CreateNewGame request failed: Unable to create session token", err)
+		return nil
+	}
+	http.SetCookie(writer, &http.Cookie{
+		Name:     "session-token",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   false,
+		Path:     "/connect",
+		SameSite: http.SameSiteStrictMode,
+		Expires:  time.Now().Add(time.Hour),
+	})
+	return nil
+}
+
 func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Request) {
 	s.Logger.Info("Player is creating a new game")
 	data, err := s.ReadRequestBody(request)
@@ -109,13 +130,17 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	}
 	gameId := utils.GetRandomGameId(6)
 	// TODO: gameId could possibly be duplicate, fix this
-	s.Logger.Info(fmt.Sprintf("game id %s", gameId))
 	gameRequest.MaxPlayerCount = min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
 	gameRequest.TotalRounds = min(MAX_ALLOWED_ROUNDS, gameRequest.TotalRounds)
 	err = s.Db.CreateNewGame(gameId, gameRequest.Player, gameRequest.MaxPlayerCount, gameRequest.TotalRounds)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
 		s.Logger.Error("CreateNewGame request failed", err)
+		return
+	}
+	if err = s.attachSessionToken(writer); err != nil {
+		s.Logger.Error("CreateNewGame request failed", err)
+		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	// TODO: The player who created the game needs to connect via ws now
@@ -181,7 +206,7 @@ func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http
 		wssConn.Close()
 		return
 	}
-	s.ConnStore.AddConnection(joinGameRequest.Player, gameId, wssConn)
+	s.GameState.AddConnection(joinGameRequest.Player, gameId, wssConn)
 	for {
 		inputData := &parser.GamePlayerInput{}
 		// TODO: Validate input
@@ -209,7 +234,7 @@ func NewGameServer(port string) (*GameServer, error) {
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 		Router:    router,
-		ConnStore: NewConnectionStore(),
+		GameState: state.NewConnectionStore(),
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")

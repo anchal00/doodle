@@ -50,7 +50,7 @@ func CreateMockGameServer(t *testing.T, db *dbMock.Repository, connStore *connSt
 		port:        "9999",
 		wssUpgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 		Router:      router,
-		ConnStore:   connStore,
+		GameState:   connStore,
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
