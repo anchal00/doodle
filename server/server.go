@@ -103,7 +103,7 @@ func (s *GameServer) attachSessionToken(writer http.ResponseWriter) error {
 		Value:    token,
 		HttpOnly: true,
 		Secure:   false,
-		Path:     "/connect",
+		Path:     fmt.Sprintf("%s/connect", HTTP_API_V1_PREFIX),
 		SameSite: http.SameSiteStrictMode,
 		Expires:  time.Now().Add(time.Hour),
 	})
@@ -185,9 +185,12 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	if err = s.attachSessionToken(writer); err != nil {
+		s.Logger.Error("JoinGame request failed", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	respBody, err := json.Marshal(parser.JoinGameResponse{
-		// TODO: Create and handover valid auth token
-		Token:   "dummy-token",
 		GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
 	})
 	if err != nil {

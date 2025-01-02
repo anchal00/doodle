@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -105,8 +106,27 @@ func (suite *GameServerTestSuite) TestCreateNewGame() {
 			suite.Nil(err, "Failed to deserialize CreateGame response body")
 			gameId := createGameResponse.GameId
 			suite.NotNil(gameId, "Failed to extract game id from CreateGame response body")
+			assertCookieValid(suite, resp)
 		})
 	}
+}
+
+func assertCookieValid(suite *GameServerTestSuite, response *http.Response) {
+	cookies := response.Cookies()
+	suite.NotNil(cookies, "Cookie not found")
+	suite.Equal(1, len(cookies), "Too many Cookies found")
+	authCookie := cookies[0]
+	suite.Equal(fmt.Sprintf("%s/connect", HTTP_API_V1_PREFIX), authCookie.Path, "Cookie path does not match")
+	suite.True(authCookie.HttpOnly, "Cookie.HttpOnly is expected to be true")
+	suite.NotEmpty(authCookie.Value, "Cookie Auth token is empty")
+	timeToExpiry := authCookie.Expires
+	expectedTime := time.Now().Add(time.Hour)
+	suite.True(timeAlmostEqual(expectedTime, timeToExpiry, time.Minute*2), "Cookie expiry time invalid")
+}
+
+func timeAlmostEqual(date1, date2 time.Time, allowedDelta time.Duration) bool {
+	durationDiff := date1.Sub(date2).Abs()
+	return durationDiff <= allowedDelta
 }
 
 func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAndRounds() {
@@ -124,6 +144,7 @@ func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAnd
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(createGameRequestBody))
 	suite.Nil(err, "Failed to execute CreateGame api call")
 	suite.Equal(http.StatusCreated, resp.StatusCode, "Failed to create new game")
+	assertCookieValid(suite, resp)
 }
 
 func (suite *GameServerTestSuite) TestPlayersJoin() {
@@ -148,7 +169,7 @@ func (suite *GameServerTestSuite) TestPlayersJoin() {
 	err = json.Unmarshal(respBody, &joinGameResponse)
 	suite.Nil(err, "Failed to deserialize JoinGameResponse body")
 	suite.NotNil(joinGameResponse.GameUrl, "Failed to extract game url from JoinGameResponse body")
-	suite.NotNil(joinGameResponse.Token, "Failed to extract auth token from JoinGameResponse body")
+	assertCookieValid(suite, resp)
 }
 
 func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
@@ -166,6 +187,7 @@ func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(join_request))
 	suite.Nil(err, "Failed to send JoinGameRequest")
 	suite.Equal(http.StatusBadRequest, resp.StatusCode, "Unable to Join the requested game")
+	suite.Equal(0, len(resp.Cookies()))
 }
 
 func (suite *GameServerTestSuite) TestPlayerInputs() {

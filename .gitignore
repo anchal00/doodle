@@ -24,3 +24,5 @@ go.work.sum
 .env
 # DB File
 *.db
+
+TODOs.md
