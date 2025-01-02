@@ -28,7 +28,6 @@ type JoinGameRequest struct {
 }
 
 type JoinGameResponse struct {
-	Token   string `json:"token,omitempty"`
 	GameUrl string `json:"game_url,omitempty"`
 }
 
