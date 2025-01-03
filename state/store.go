@@ -1,7 +1,6 @@
 package state
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -21,7 +20,7 @@ func NewInMemoryGameStore() *InMemoryGameStateStore {
 func (i InMemoryGameStateStore) GetGameState(gameId string) (*GameState, error) {
 	state, exists := i.store[gameId]
 	if !exists {
-		return nil, errors.New(fmt.Sprintf("No state found for this game Id %s", gameId))
+		return nil, fmt.Errorf("No state found for this game Id %s", gameId)
 	}
 	return state, nil
 }
