@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func CreateMockGameServer(t *testing.T, db *dbMock.Repository, connStore *connSt
 	router := mux.NewRouter().PathPrefix(HTTP_API_V1_PREFIX).Subrouter()
 	gs := &GameServer{
 		Db:          db,
-		Logger:      logger.New("test_logger"),
+		Logger:      logger.New("server_test_logger"),
 		port:        "9999",
 		wssUpgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 		Router:      router,
@@ -86,7 +87,7 @@ func (suite *GameServerTestSuite) TestCreateNewGame() {
 	}
 	for _, tc := range tests {
 		suite.Run(tc.description, func() {
-			suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			createGameRequestBody, err := json.Marshal(map[string]any{
 				"player":       tc.player,
 				"max_players":  tc.max_player,
@@ -117,6 +118,7 @@ func assertCookieValid(suite *GameServerTestSuite, response *http.Response) {
 	suite.Equal(1, len(cookies), "Too many Cookies found")
 	authCookie := cookies[0]
 	suite.Equal(fmt.Sprintf("%s/connect", HTTP_API_V1_PREFIX), authCookie.Path, "Cookie path does not match")
+	suite.Equal("session-token", authCookie.Name, "Cookie name mismatch")
 	suite.True(authCookie.HttpOnly, "Cookie.HttpOnly is expected to be true")
 	suite.NotEmpty(authCookie.Value, "Cookie Auth token is empty")
 	timeToExpiry := authCookie.Expires
@@ -138,7 +140,7 @@ func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAnd
 		TotalRounds:    10,
 	}
 	url := suite.server.URL + HTTP_API_V1_PREFIX + "/game"
-	suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	createGameRequestBody, err := json.Marshal(createGameRequest)
 	suite.Nil(err, "Failed to create CreateGame request body")
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(createGameRequestBody))
@@ -157,7 +159,7 @@ func (suite *GameServerTestSuite) TestPlayersJoin() {
 	}
 	joiningPlayerName := "player1"
 	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
-	suite.dbMock.On("AddPlayerToGame", mockGameObject.GameId, joiningPlayerName).Return(nil)
+	suite.dbMock.On("AddPlayerToGame", mockGameObject.GameId, joiningPlayerName, mock.Anything).Return(nil)
 	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s", mockGameObject.GameId)
 	join_request, _ := json.Marshal(parser.JoinGameRequest{Player: joiningPlayerName})
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(join_request))
@@ -190,7 +192,36 @@ func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
 	suite.Equal(0, len(resp.Cookies()))
 }
 
-func (suite *GameServerTestSuite) TestPlayerInputs() {
+func (suite *GameServerTestSuite) TestPlayerInput() {
+	mockGameObject := db.Game{
+		GameId:       "xxxxxx",
+		PlayerCount:  4,
+		MaxPlayers:   4,
+		CurrentRound: 0,
+		TotalRounds:  4,
+	}
+	mockPlayerObject := db.Player{
+		Name:      "Player1",
+		GameId:    mockGameObject.GameId,
+		IsAdmin:   true,
+		AuthToken: "dummy-token",
+	}
+	suite.connStoreMock.On("AddConnection", mockPlayerObject.Name, mockGameObject.GameId, mock.Anything).Return(nil)
+	suite.dbMock.On("GetGamePlayerByToken", mockGameObject.GameId, mockPlayerObject.AuthToken).Return(&mockPlayerObject)
+	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/connect/game/%s", mockGameObject.GameId)
+    url = strings.ReplaceAll(url, "http:", "ws:")
+    header := http.Header{}
+    header.Add("Cookie", "session-token=dummy-token")
+    conn, _, err := websocket.DefaultDialer.Dial(url, header)
+    suite.Nil(err, "Failed to establish websocket connection")
+    body := parser.GamePlayerInput{
+		Xcoord: 120,
+		Ycoord: 120,
+	}
+    err = conn.WriteJSON(body)
+    suite.Nil(err, "Failed to send payload on the websocket connection")
+    err = conn.Close()
+    suite.Nil(err, "Failed to close websocket connection")
 }
 
 func (suite *GameServerTestSuite) TestBadPlayerInput() {

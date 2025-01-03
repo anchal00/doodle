@@ -91,23 +91,25 @@ func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byt
 	}
 }
 
-func (s *GameServer) attachSessionToken(writer http.ResponseWriter) error {
+func (s *GameServer) attachSessionToken(writer http.ResponseWriter) (string, error) {
 	token, err := createSessionToken()
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
 		s.Logger.Error("CreateNewGame request failed: Unable to create session token", err)
-		return nil
+		return "", err
 	}
-	http.SetCookie(writer, &http.Cookie{
+    expirationTime := time.Now().Add(60 * time.Minute)
+	cookie := &http.Cookie{
 		Name:     "session-token",
 		Value:    token,
 		HttpOnly: true,
 		Secure:   false,
 		Path:     fmt.Sprintf("%s/connect", HTTP_API_V1_PREFIX),
 		SameSite: http.SameSiteStrictMode,
-		Expires:  time.Now().Add(time.Hour),
-	})
-	return nil
+		Expires: expirationTime,
+	}
+	http.SetCookie(writer, cookie)
+	return token, nil
 }
 
 func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Request) {
@@ -134,15 +136,15 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	// TODO: gameId could possibly be duplicate, fix this
 	gameRequest.MaxPlayerCount = min(MAX_ALLOWED_PLAYERS, gameRequest.MaxPlayerCount)
 	gameRequest.TotalRounds = min(MAX_ALLOWED_ROUNDS, gameRequest.TotalRounds)
-	err = s.Db.CreateNewGame(gameId, gameRequest.Player, gameRequest.MaxPlayerCount, gameRequest.TotalRounds)
+	authToken, err := s.attachSessionToken(writer)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
 		s.Logger.Error("CreateNewGame request failed", err)
 		return
 	}
-	if err = s.attachSessionToken(writer); err != nil {
+	err = s.Db.CreateNewGame(gameId, gameRequest.Player, authToken, gameRequest.MaxPlayerCount, gameRequest.TotalRounds)
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
 		s.Logger.Error("CreateNewGame request failed", err)
-		writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	// TODO: The player who created the game needs to connect via ws now
@@ -180,18 +182,18 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if err := s.Db.AddPlayerToGame(gameId, joinGameRequest.Player); err != nil {
+	authToken, err := s.attachSessionToken(writer)
+	if err != nil {
+		s.Logger.Error("JoinGame request failed", err)
+		return
+	}
+	if err := s.Db.AddPlayerToGame(gameId, joinGameRequest.Player, authToken); err != nil {
 		s.Logger.Error("Failed to process join game request", err)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if err = s.attachSessionToken(writer); err != nil {
-		s.Logger.Error("JoinGame request failed", err)
-		writer.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	respBody, err := json.Marshal(parser.JoinGameResponse{
-		GameUrl: fmt.Sprintf("http://localhost:%s%s%s", s.port, HTTP_API_V1_PREFIX, gameId),
+		GameUrl: fmt.Sprintf("http://127.0.0.1:%s%s/%s", s.port, HTTP_API_V1_PREFIX, gameId),
 	})
 	if err != nil {
 		s.sendResponse(writer, nil, http.StatusInternalServerError)
@@ -200,18 +202,33 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 	s.sendResponse(writer, respBody, http.StatusOK)
 }
 
+func (s *GameServer) authorizePlayer(gameId string, request *http.Request) (*db.Player, error) {
+	cookie, err := request.Cookie("session-token")
+	if err != nil {
+		return nil, err
+	}
+    if err := cookie.Valid(); err != nil {
+        return nil, err
+    }
+    // TODO: Store auth token expiry time in db as well and verify token's validity here
+	token := cookie.Value
+	player := s.Db.GetGamePlayerByToken(gameId, token)
+	return player, nil
+}
+
 func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
 	gameId := mux.Vars(request)["gameId"]
 	s.Logger.Info(fmt.Sprintf("Player is sending an update to game %s", gameId))
-	// TODO: Authorize player
-	wssConn := s.UpgradeToWebsocket(writer, request)
-	joinGameRequest := &parser.JoinGameRequest{}
-	if err := wssConn.ReadJSON(joinGameRequest); err != nil {
-		s.Logger.Error("Cannot connect to game, bad payload", err)
-		wssConn.Close()
+	// Authorize player
+	player, err := s.authorizePlayer(gameId, request)
+	if err != nil {
+		s.Logger.Error("Malformed cookie", err)
+		writer.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	s.GameState.AddConnection(joinGameRequest.Player, gameId, wssConn)
+	wssConn := s.UpgradeToWebsocket(writer, request)
+	s.GameState.AddConnection(player.Name, gameId, wssConn)
+    defer wssConn.Close()
 	for {
 		inputData := &parser.GamePlayerInput{}
 		// TODO: Validate input

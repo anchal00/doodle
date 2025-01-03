@@ -41,8 +41,6 @@ func ParseJoinGameRequest(data []byte) (*JoinGameRequest, error) {
 }
 
 type GamePlayerInput struct {
-	Player string `json:"player,omitempty"`
-	GameId string `json:"game_id,omitempty"`
-	Xcoord uint8  `json:"x_cord,omitempty"`
-	Ycoord uint8  `json:"y_cord,omitempty"`
+	Xcoord uint8 `json:"x_cord,omitempty"`
+	Ycoord uint8 `json:"y_cord,omitempty"`
 }

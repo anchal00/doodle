@@ -51,7 +51,7 @@ func tearDown(gs *GameServer) {
 	}
 }
 
-func ApiCall(method, path string, requestBody io.Reader) (*http.Response, error) {
+func apiCall(method, path string, requestBody io.Reader) (*http.Response, error) {
 	url := fmt.Sprintf("http://localhost:%s%s%s", os.Getenv("DOODLE_PORT"), HTTP_API_V1_PREFIX, path)
 	req, err := http.NewRequest(method, url, requestBody)
 	if err != nil {
@@ -75,7 +75,7 @@ func TestGameFlow(t *testing.T) {
 		"total_rounds": 4,
 	})
 	assert.Nil(t, err, "Failed to create CreateGame request body")
-	resp, err := ApiCall("POST", "/game", bytes.NewBuffer(createGameRequestBody))
+	resp, err := apiCall("POST", "/game", bytes.NewBuffer(createGameRequestBody))
 	assert.Nil(t, err, "Failed to execute CreateGame api call")
 	assert.Equal(t, http.StatusCreated, resp.StatusCode, "Failed to create new game")
 	respBody, err := ReadResponseBody(resp)
@@ -89,14 +89,14 @@ func TestGameFlow(t *testing.T) {
 	for player := 1; player <= 4; player += 1 {
 		addPlayerRequestBody, err := json.Marshal(parser.JoinGameRequest{Player: fmt.Sprintf("player%d", player)})
 		assert.Nil(t, err, "Failed to create AddPlayer request body")
-		resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
+		resp, err = apiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
 		assert.Nil(t, err, "Failed to execute AddPlayer api call")
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "Failed to add new player to the game")
 	}
 	// Adding more players should be disallowed as we have added 5 players (including the player who had created the game)
 	addPlayerRequestBody, err := json.Marshal(parser.JoinGameRequest{Player: "playerlast"})
 	assert.Nil(t, err, "Failed to create AddPlayer request body")
-	resp, err = ApiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
+	resp, err = apiCall("POST", fmt.Sprintf("/game/%s", gameId), bytes.NewBuffer(addPlayerRequestBody))
 	assert.Nil(t, err, "Failed to execute AddPlayer api call")
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Player limit has been exhausted, expected the join request to be rejected")
 }

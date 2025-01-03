@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS players (
   name varchar(10) NOT NULL,
   game_id varchar(8) REFERENCES games(game_id) ON DELETE CASCADE,
   is_admin boolean DEFAULT false NOT NULL,
+  token varchar NOT NULL,
   PRIMARY KEY (name, game_id)
 
   CONSTRAINT non_empty_player CHECK (TRIM(name) <> '')
@@ -69,11 +70,15 @@ func (s *SqliteStore) GetGameById(gameId string) *Game {
 	return game
 }
 
+func (s *SqliteStore) GetGamePlayerByToken(gameId, token string) *Player {
+	return &Player{}
+}
+
 func (s *SqliteStore) GetGamePlayerByName(gameId, playerName string) Player {
 	return Player{}
 }
 
-func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRounds uint8) error {
+func (s *SqliteStore) CreateNewGame(gameId, player, token string, maxPlayers, totalRounds uint8) error {
 	txn, err := s.Conn.Beginx()
 	if err != nil {
 		s.Logger.Error("Failed to create new game", err)
@@ -91,8 +96,8 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 		return err
 	}
 	s.Logger.Info("Game created successfully")
-	insertPlayerSQL := `INSERT INTO players VALUES(?, ?, ?);`
-	_, err = txn.Exec(insertPlayerSQL, player, gameId, true)
+	insertPlayerSQL := `INSERT INTO players(name, game_id, is_admin, token) VALUES(?, ?, ?, ?);`
+	_, err = txn.Exec(insertPlayerSQL, player, gameId, true, token)
 	if err != nil {
 		s.Logger.Error("Failed to save player", err)
 		errRoll := txn.Rollback()
@@ -111,14 +116,14 @@ func (s *SqliteStore) CreateNewGame(gameId, player string, maxPlayers, totalRoun
 	return nil
 }
 
-func (s *SqliteStore) AddPlayerToGame(gameId, playerName string) error {
+func (s *SqliteStore) AddPlayerToGame(gameId, playerName, token string) error {
 	txn, err := s.Conn.Beginx()
 	if err != nil {
 		s.Logger.Error("Failed to add player to game", err)
 		return err
 	}
-	insertPlayerSQL := `INSERT INTO players(name, game_id) VALUES(?, ?);`
-	_, err = txn.Exec(insertPlayerSQL, playerName, gameId, false)
+	insertPlayerSQL := `INSERT INTO players(name, game_id, token) VALUES(?, ?, ?);`
+	_, err = txn.Exec(insertPlayerSQL, playerName, gameId, token)
 	if err != nil {
 		s.Logger.Error("Failed to add player to game", err)
 		errRoll := txn.Rollback()
