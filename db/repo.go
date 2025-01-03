@@ -74,6 +74,16 @@ func (s *SqliteStore) GetGamePlayerByToken(gameId, token string) *Player {
 	return &Player{}
 }
 
+func (s *SqliteStore) DeletePlayer(gameId, player string) {
+	sql := `DELETE FROM player WHERE game_id = ? AND player = ?`
+	_, err := s.Conn.Exec(sql, gameId, player)
+	if err != nil {
+		s.Logger.Error("Failed to fetch game", err)
+		return
+	}
+	s.Logger.Info(fmt.Sprintf("Player %s deleted from game %s", player, gameId))
+}
+
 func (s *SqliteStore) GetGamePlayers(gameId string) ([]Player, error) {
 	players := []Player{}
 	sql := `SELECT * FROM players WHERE game_id = ?`

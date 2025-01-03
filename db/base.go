@@ -14,6 +14,7 @@ type Repository interface {
 	GetGamePlayerByToken(gameId, token string) *Player
 	CreateNewGame(gameId, player, token string, maxPlayers, totalRounds uint8) error
 	AddPlayerToGame(gameId, playerName, token string) error
+	DeletePlayer(gameId, player string)
 	UpdatePlayerScore(gameId, playerName string, scoreDelta uint8) error
 }
 

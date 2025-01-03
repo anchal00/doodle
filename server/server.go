@@ -244,15 +244,15 @@ func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http
 	gs.AddConnection(player.Name, wssConn)
 	defer wssConn.Close()
 	for {
-		inputData := &parser.GamePlayerInput{}
-		// TODO: Validate input
-		if err := wssConn.ReadJSON(inputData); err != nil {
+		_, msg, err := wssConn.ReadMessage()
+		s.Logger.Info("Received data from a player")
+		if err != nil {
 			s.Logger.Info("Player disconnected")
 			// Delete from Db
-			// Delete from ConnectionStore
+			// gs.RemoveConnection(player.Name)
 			return
 		}
-		s.Logger.Info("Received data from a player")
+		gs.HandleInput(msg)
 	}
 }
 

@@ -151,6 +151,40 @@ func (_c *Repository_CreateNewGame_Call) RunAndReturn(run func(string, string, s
 	return _c
 }
 
+// DeletePlayer provides a mock function with given fields: gameId, player
+func (_m *Repository) DeletePlayer(gameId string, player string) {
+	_m.Called(gameId, player)
+}
+
+// Repository_DeletePlayer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeletePlayer'
+type Repository_DeletePlayer_Call struct {
+	*mock.Call
+}
+
+// DeletePlayer is a helper method to define mock.On call
+//   - gameId string
+//   - player string
+func (_e *Repository_Expecter) DeletePlayer(gameId interface{}, player interface{}) *Repository_DeletePlayer_Call {
+	return &Repository_DeletePlayer_Call{Call: _e.mock.On("DeletePlayer", gameId, player)}
+}
+
+func (_c *Repository_DeletePlayer_Call) Run(run func(gameId string, player string)) *Repository_DeletePlayer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *Repository_DeletePlayer_Call) Return() *Repository_DeletePlayer_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Repository_DeletePlayer_Call) RunAndReturn(run func(string, string)) *Repository_DeletePlayer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetGameById provides a mock function with given fields: gameId
 func (_m *Repository) GetGameById(gameId string) *db.Game {
 	ret := _m.Called(gameId)
