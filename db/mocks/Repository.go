@@ -21,17 +21,17 @@ func (_m *Repository) EXPECT() *Repository_Expecter {
 	return &Repository_Expecter{mock: &_m.Mock}
 }
 
-// AddPlayerToGame provides a mock function with given fields: gameId, playerName
-func (_m *Repository) AddPlayerToGame(gameId string, playerName string) error {
-	ret := _m.Called(gameId, playerName)
+// AddPlayerToGame provides a mock function with given fields: gameId, playerName, token
+func (_m *Repository) AddPlayerToGame(gameId string, playerName string, token string) error {
+	ret := _m.Called(gameId, playerName, token)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddPlayerToGame")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string) error); ok {
-		r0 = rf(gameId, playerName)
+	if rf, ok := ret.Get(0).(func(string, string, string) error); ok {
+		r0 = rf(gameId, playerName, token)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -47,13 +47,14 @@ type Repository_AddPlayerToGame_Call struct {
 // AddPlayerToGame is a helper method to define mock.On call
 //   - gameId string
 //   - playerName string
-func (_e *Repository_Expecter) AddPlayerToGame(gameId interface{}, playerName interface{}) *Repository_AddPlayerToGame_Call {
-	return &Repository_AddPlayerToGame_Call{Call: _e.mock.On("AddPlayerToGame", gameId, playerName)}
+//   - token string
+func (_e *Repository_Expecter) AddPlayerToGame(gameId interface{}, playerName interface{}, token interface{}) *Repository_AddPlayerToGame_Call {
+	return &Repository_AddPlayerToGame_Call{Call: _e.mock.On("AddPlayerToGame", gameId, playerName, token)}
 }
 
-func (_c *Repository_AddPlayerToGame_Call) Run(run func(gameId string, playerName string)) *Repository_AddPlayerToGame_Call {
+func (_c *Repository_AddPlayerToGame_Call) Run(run func(gameId string, playerName string, token string)) *Repository_AddPlayerToGame_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string))
+		run(args[0].(string), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -63,7 +64,7 @@ func (_c *Repository_AddPlayerToGame_Call) Return(_a0 error) *Repository_AddPlay
 	return _c
 }
 
-func (_c *Repository_AddPlayerToGame_Call) RunAndReturn(run func(string, string) error) *Repository_AddPlayerToGame_Call {
+func (_c *Repository_AddPlayerToGame_Call) RunAndReturn(run func(string, string, string) error) *Repository_AddPlayerToGame_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -100,17 +101,17 @@ func (_c *Repository_CloseConnection_Call) RunAndReturn(run func()) *Repository_
 	return _c
 }
 
-// CreateNewGame provides a mock function with given fields: gameId, player, maxPlayers, totalRounds
-func (_m *Repository) CreateNewGame(gameId string, player string, maxPlayers uint8, totalRounds uint8) error {
-	ret := _m.Called(gameId, player, maxPlayers, totalRounds)
+// CreateNewGame provides a mock function with given fields: gameId, player, token, maxPlayers, totalRounds
+func (_m *Repository) CreateNewGame(gameId string, player string, token string, maxPlayers uint8, totalRounds uint8) error {
+	ret := _m.Called(gameId, player, token, maxPlayers, totalRounds)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateNewGame")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, uint8, uint8) error); ok {
-		r0 = rf(gameId, player, maxPlayers, totalRounds)
+	if rf, ok := ret.Get(0).(func(string, string, string, uint8, uint8) error); ok {
+		r0 = rf(gameId, player, token, maxPlayers, totalRounds)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -126,15 +127,16 @@ type Repository_CreateNewGame_Call struct {
 // CreateNewGame is a helper method to define mock.On call
 //   - gameId string
 //   - player string
+//   - token string
 //   - maxPlayers uint8
 //   - totalRounds uint8
-func (_e *Repository_Expecter) CreateNewGame(gameId interface{}, player interface{}, maxPlayers interface{}, totalRounds interface{}) *Repository_CreateNewGame_Call {
-	return &Repository_CreateNewGame_Call{Call: _e.mock.On("CreateNewGame", gameId, player, maxPlayers, totalRounds)}
+func (_e *Repository_Expecter) CreateNewGame(gameId interface{}, player interface{}, token interface{}, maxPlayers interface{}, totalRounds interface{}) *Repository_CreateNewGame_Call {
+	return &Repository_CreateNewGame_Call{Call: _e.mock.On("CreateNewGame", gameId, player, token, maxPlayers, totalRounds)}
 }
 
-func (_c *Repository_CreateNewGame_Call) Run(run func(gameId string, player string, maxPlayers uint8, totalRounds uint8)) *Repository_CreateNewGame_Call {
+func (_c *Repository_CreateNewGame_Call) Run(run func(gameId string, player string, token string, maxPlayers uint8, totalRounds uint8)) *Repository_CreateNewGame_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(string), args[2].(uint8), args[3].(uint8))
+		run(args[0].(string), args[1].(string), args[2].(string), args[3].(uint8), args[4].(uint8))
 	})
 	return _c
 }
@@ -144,7 +146,7 @@ func (_c *Repository_CreateNewGame_Call) Return(_a0 error) *Repository_CreateNew
 	return _c
 }
 
-func (_c *Repository_CreateNewGame_Call) RunAndReturn(run func(string, string, uint8, uint8) error) *Repository_CreateNewGame_Call {
+func (_c *Repository_CreateNewGame_Call) RunAndReturn(run func(string, string, string, uint8, uint8) error) *Repository_CreateNewGame_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -240,6 +242,55 @@ func (_c *Repository_GetGamePlayerByName_Call) Return(_a0 db.Player) *Repository
 }
 
 func (_c *Repository_GetGamePlayerByName_Call) RunAndReturn(run func(string, string) db.Player) *Repository_GetGamePlayerByName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetGamePlayerByToken provides a mock function with given fields: gameId, token
+func (_m *Repository) GetGamePlayerByToken(gameId string, token string) *db.Player {
+	ret := _m.Called(gameId, token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetGamePlayerByToken")
+	}
+
+	var r0 *db.Player
+	if rf, ok := ret.Get(0).(func(string, string) *db.Player); ok {
+		r0 = rf(gameId, token)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*db.Player)
+		}
+	}
+
+	return r0
+}
+
+// Repository_GetGamePlayerByToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGamePlayerByToken'
+type Repository_GetGamePlayerByToken_Call struct {
+	*mock.Call
+}
+
+// GetGamePlayerByToken is a helper method to define mock.On call
+//   - gameId string
+//   - token string
+func (_e *Repository_Expecter) GetGamePlayerByToken(gameId interface{}, token interface{}) *Repository_GetGamePlayerByToken_Call {
+	return &Repository_GetGamePlayerByToken_Call{Call: _e.mock.On("GetGamePlayerByToken", gameId, token)}
+}
+
+func (_c *Repository_GetGamePlayerByToken_Call) Run(run func(gameId string, token string)) *Repository_GetGamePlayerByToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *Repository_GetGamePlayerByToken_Call) Return(_a0 *db.Player) *Repository_GetGamePlayerByToken_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Repository_GetGamePlayerByToken_Call) RunAndReturn(run func(string, string) *db.Player) *Repository_GetGamePlayerByToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

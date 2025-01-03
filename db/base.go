@@ -10,8 +10,9 @@ type Repository interface {
 	CloseConnection()
 	GetGameById(gameId string) *Game
 	GetGamePlayerByName(gameId, playerName string) Player
-	CreateNewGame(gameId, player string, maxPlayers, totalRounds uint8) error
-	AddPlayerToGame(gameId, playerName string) error
+	GetGamePlayerByToken(gameId, token string) *Player
+	CreateNewGame(gameId, player, token string, maxPlayers, totalRounds uint8) error
+	AddPlayerToGame(gameId, playerName, token string) error
 	UpdatePlayerScore(gameId, playerName string, scoreDelta uint8) error
 }
 

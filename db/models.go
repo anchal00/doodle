@@ -11,5 +11,6 @@ type Game struct {
 type Player struct {
 	Name      string `db:"name"`
 	GameId    string `db:"game_id"`
-	Is_active bool   `db:"is_active"`
+	IsAdmin   bool   `db:"is_admin"`
+	AuthToken string `db:"token"`
 }
