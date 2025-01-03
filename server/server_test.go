@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"doodle/db"
 	dbMock "doodle/db/mocks"
+    stateStoreMock "doodle/state/mocks"
 	"doodle/logger"
 	"doodle/parser"
-	connStoreMock "doodle/state/mocks"
+	"doodle/state"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,15 +25,15 @@ import (
 
 type GameServerTestSuite struct {
 	suite.Suite
-	dbMock        *dbMock.Repository
-	connStoreMock *connStoreMock.ConnectionStore
-	server        *httptest.Server
+	dbMock *dbMock.Repository
+    stateMock *stateStoreMock.StateStore
+	server *httptest.Server
 }
 
 func (suite *GameServerTestSuite) SetupTest() {
 	suite.dbMock = dbMock.NewRepository(suite.T())
-	suite.connStoreMock = connStoreMock.NewConnectionStore(suite.T())
-	gs := CreateMockGameServer(suite.T(), suite.dbMock, suite.connStoreMock)
+    suite.stateMock = stateStoreMock.NewStateStore(suite.T())
+	gs := CreateMockGameServer(suite.T(), suite.dbMock, suite.stateMock)
 	suite.server = httptest.NewServer(gs.Router)
 }
 
@@ -44,7 +45,7 @@ func TestGameServerSuite(t *testing.T) {
 	suite.Run(t, new(GameServerTestSuite))
 }
 
-func CreateMockGameServer(t *testing.T, db *dbMock.Repository, connStore *connStoreMock.ConnectionStore) *GameServer {
+func CreateMockGameServer(t *testing.T, db *dbMock.Repository, stateStore *stateStoreMock.StateStore) *GameServer {
 	router := mux.NewRouter().PathPrefix(HTTP_API_V1_PREFIX).Subrouter()
 	gs := &GameServer{
 		Db:          db,
@@ -52,7 +53,7 @@ func CreateMockGameServer(t *testing.T, db *dbMock.Repository, connStore *connSt
 		port:        "9999",
 		wssUpgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 		Router:      router,
-		GameState:   connStore,
+		GameState:   stateStore,
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
@@ -88,6 +89,9 @@ func (suite *GameServerTestSuite) TestCreateNewGame() {
 	for _, tc := range tests {
 		suite.Run(tc.description, func() {
 			suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+            if tc.expectedStatusCode == http.StatusCreated {
+                suite.stateMock.On("SetGameState", mock.Anything, mock.Anything).Return(nil)
+            }
 			createGameRequestBody, err := json.Marshal(map[string]any{
 				"player":       tc.player,
 				"max_players":  tc.max_player,
@@ -141,6 +145,7 @@ func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAnd
 	}
 	url := suite.server.URL + HTTP_API_V1_PREFIX + "/game"
 	suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+    suite.stateMock.On("SetGameState", mock.Anything, mock.Anything).Return(nil)
 	createGameRequestBody, err := json.Marshal(createGameRequest)
 	suite.Nil(err, "Failed to create CreateGame request body")
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(createGameRequestBody))
@@ -160,6 +165,7 @@ func (suite *GameServerTestSuite) TestPlayersJoin() {
 	joiningPlayerName := "player1"
 	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
 	suite.dbMock.On("AddPlayerToGame", mockGameObject.GameId, joiningPlayerName, mock.Anything).Return(nil)
+    suite.stateMock.On("GetGameState", mock.Anything).Return(state.InitGameState(mockGameObject.GameId, nil), nil)
 	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s", mockGameObject.GameId)
 	join_request, _ := json.Marshal(parser.JoinGameRequest{Player: joiningPlayerName})
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(join_request))
@@ -195,10 +201,6 @@ func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
 func (suite *GameServerTestSuite) TestPlayerInput() {
 	mockGameObject := db.Game{
 		GameId:       "xxxxxx",
-		PlayerCount:  4,
-		MaxPlayers:   4,
-		CurrentRound: 0,
-		TotalRounds:  4,
 	}
 	mockPlayerObject := db.Player{
 		Name:      "Player1",
@@ -206,22 +208,22 @@ func (suite *GameServerTestSuite) TestPlayerInput() {
 		IsAdmin:   true,
 		AuthToken: "dummy-token",
 	}
-	suite.connStoreMock.On("AddConnection", mockPlayerObject.Name, mockGameObject.GameId, mock.Anything).Return(nil)
 	suite.dbMock.On("GetGamePlayerByToken", mockGameObject.GameId, mockPlayerObject.AuthToken).Return(&mockPlayerObject)
+    suite.stateMock.On("GetGameState", mock.Anything).Return(state.InitGameState(mockGameObject.GameId, nil), nil)
 	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/connect/game/%s", mockGameObject.GameId)
-    url = strings.ReplaceAll(url, "http:", "ws:")
-    header := http.Header{}
-    header.Add("Cookie", "session-token=dummy-token")
-    conn, _, err := websocket.DefaultDialer.Dial(url, header)
-    suite.Nil(err, "Failed to establish websocket connection")
-    body := parser.GamePlayerInput{
+	url = strings.ReplaceAll(url, "http:", "ws:")
+	header := http.Header{}
+	header.Add("Cookie", "session-token=dummy-token")
+	conn, _, err := websocket.DefaultDialer.Dial(url, header)
+	suite.Nil(err, "Failed to establish websocket connection")
+	body := parser.GamePlayerInput{
 		Xcoord: 120,
 		Ycoord: 120,
 	}
-    err = conn.WriteJSON(body)
-    suite.Nil(err, "Failed to send payload on the websocket connection")
-    err = conn.Close()
-    suite.Nil(err, "Failed to close websocket connection")
+	err = conn.WriteJSON(body)
+	suite.Nil(err, "Failed to send payload on the websocket connection")
+	err = conn.Close()
+	suite.Nil(err, "Failed to close websocket connection")
 }
 
 func (suite *GameServerTestSuite) TestBadPlayerInput() {

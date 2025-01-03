@@ -1,6 +1,6 @@
 //go:generate mockery --with-expecter=true --name=Repository --dir=db --output=db/mocks
 //go:generate mockery --with-expecter=true --name=Logger --dir=logger --output=logger/mocks
-//go:generate mockery  --with-expecter=true --name=ConnectionStore --dir=state --output=state/mocks
+//go:generate mockery --with-expecter=true --name=StateStore --dir=state --output=state/mocks
 package main
 
 import (

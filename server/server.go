@@ -31,7 +31,7 @@ type GameServer struct {
 	port        string
 	wssUpgrader websocket.Upgrader
 	Router      *mux.Router
-	GameState   state.ConnectionStore
+	GameState   state.StateStore
 }
 
 func (s *GameServer) UpgradeToWebsocket(writer http.ResponseWriter, request *http.Request) *websocket.Conn {
@@ -98,7 +98,7 @@ func (s *GameServer) attachSessionToken(writer http.ResponseWriter) (string, err
 		s.Logger.Error("CreateNewGame request failed: Unable to create session token", err)
 		return "", err
 	}
-    expirationTime := time.Now().Add(60 * time.Minute)
+	expirationTime := time.Now().Add(60 * time.Minute)
 	cookie := &http.Cookie{
 		Name:     "session-token",
 		Value:    token,
@@ -106,7 +106,7 @@ func (s *GameServer) attachSessionToken(writer http.ResponseWriter) (string, err
 		Secure:   false,
 		Path:     fmt.Sprintf("%s/connect", HTTP_API_V1_PREFIX),
 		SameSite: http.SameSiteStrictMode,
-		Expires: expirationTime,
+		Expires:  expirationTime,
 	}
 	http.SetCookie(writer, cookie)
 	return token, nil
@@ -147,6 +147,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		s.Logger.Error("CreateNewGame request failed", err)
 		return
 	}
+	s.GameState.SetGameState(gameId, state.InitGameState(gameId, &s.Db))
 	// TODO: The player who created the game needs to connect via ws now
 	// to be able to receieve updates of the others joining etc.
 	respBody, err := json.Marshal(parser.CreateGameResponse{GameId: gameId})
@@ -192,6 +193,13 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	gs, err := s.GameState.GetGameState(gameId)
+	if err != nil {
+		s.Logger.Error("GameStateError", err)
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	gs.Refresh()
 	respBody, err := json.Marshal(parser.JoinGameResponse{
 		GameUrl: fmt.Sprintf("http://127.0.0.1:%s%s/%s", s.port, HTTP_API_V1_PREFIX, gameId),
 	})
@@ -207,10 +215,10 @@ func (s *GameServer) authorizePlayer(gameId string, request *http.Request) (*db.
 	if err != nil {
 		return nil, err
 	}
-    if err := cookie.Valid(); err != nil {
-        return nil, err
-    }
-    // TODO: Store auth token expiry time in db as well and verify token's validity here
+	if err := cookie.Valid(); err != nil {
+		return nil, err
+	}
+	// TODO: Store auth token expiry time in db as well and verify token's validity here
 	token := cookie.Value
 	player := s.Db.GetGamePlayerByToken(gameId, token)
 	return player, nil
@@ -227,8 +235,14 @@ func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http
 		return
 	}
 	wssConn := s.UpgradeToWebsocket(writer, request)
-	s.GameState.AddConnection(player.Name, gameId, wssConn)
-    defer wssConn.Close()
+	gs, err := s.GameState.GetGameState(gameId)
+	if err != nil {
+		s.Logger.Error("GameStateError", err)
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	gs.AddConnection(player.Name, wssConn)
+	defer wssConn.Close()
 	for {
 		inputData := &parser.GamePlayerInput{}
 		// TODO: Validate input
@@ -256,7 +270,7 @@ func NewGameServer(port string) (*GameServer, error) {
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 		Router:    router,
-		GameState: state.NewConnectionStore(),
+		GameState: state.NewInMemoryGameStore(),
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
