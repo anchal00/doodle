@@ -295,6 +295,64 @@ func (_c *Repository_GetGamePlayerByToken_Call) RunAndReturn(run func(string, st
 	return _c
 }
 
+// GetGamePlayers provides a mock function with given fields: gameId
+func (_m *Repository) GetGamePlayers(gameId string) ([]db.Player, error) {
+	ret := _m.Called(gameId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetGamePlayers")
+	}
+
+	var r0 []db.Player
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) ([]db.Player, error)); ok {
+		return rf(gameId)
+	}
+	if rf, ok := ret.Get(0).(func(string) []db.Player); ok {
+		r0 = rf(gameId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]db.Player)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(gameId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Repository_GetGamePlayers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetGamePlayers'
+type Repository_GetGamePlayers_Call struct {
+	*mock.Call
+}
+
+// GetGamePlayers is a helper method to define mock.On call
+//   - gameId string
+func (_e *Repository_Expecter) GetGamePlayers(gameId interface{}) *Repository_GetGamePlayers_Call {
+	return &Repository_GetGamePlayers_Call{Call: _e.mock.On("GetGamePlayers", gameId)}
+}
+
+func (_c *Repository_GetGamePlayers_Call) Run(run func(gameId string)) *Repository_GetGamePlayers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *Repository_GetGamePlayers_Call) Return(_a0 []db.Player, _a1 error) *Repository_GetGamePlayers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Repository_GetGamePlayers_Call) RunAndReturn(run func(string) ([]db.Player, error)) *Repository_GetGamePlayers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetupConnection provides a mock function with given fields: database
 func (_m *Repository) SetupConnection(database string) error {
 	ret := _m.Called(database)

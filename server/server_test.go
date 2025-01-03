@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"doodle/db"
 	dbMock "doodle/db/mocks"
-    stateStoreMock "doodle/state/mocks"
 	"doodle/logger"
 	"doodle/parser"
 	"doodle/state"
+	stateStoreMock "doodle/state/mocks"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,14 +25,14 @@ import (
 
 type GameServerTestSuite struct {
 	suite.Suite
-	dbMock *dbMock.Repository
-    stateMock *stateStoreMock.StateStore
-	server *httptest.Server
+	dbMock    *dbMock.Repository
+	stateMock *stateStoreMock.StateStore
+	server    *httptest.Server
 }
 
 func (suite *GameServerTestSuite) SetupTest() {
 	suite.dbMock = dbMock.NewRepository(suite.T())
-    suite.stateMock = stateStoreMock.NewStateStore(suite.T())
+	suite.stateMock = stateStoreMock.NewStateStore(suite.T())
 	gs := CreateMockGameServer(suite.T(), suite.dbMock, suite.stateMock)
 	suite.server = httptest.NewServer(gs.Router)
 }
@@ -89,9 +89,14 @@ func (suite *GameServerTestSuite) TestCreateNewGame() {
 	for _, tc := range tests {
 		suite.Run(tc.description, func() {
 			suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-            if tc.expectedStatusCode == http.StatusCreated {
-                suite.stateMock.On("SetGameState", mock.Anything, mock.Anything).Return(nil)
-            }
+			suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{}, nil)
+			if tc.expectedStatusCode == http.StatusCreated {
+				suite.stateMock.On("SetGameState", mock.Anything, mock.Anything).Return(nil)
+                mockGameObject := db.Game{
+                    PlayerCount:  1,
+                }
+                suite.dbMock.On("GetGameById", mock.Anything).Return(&mockGameObject)
+			}
 			createGameRequestBody, err := json.Marshal(map[string]any{
 				"player":       tc.player,
 				"max_players":  tc.max_player,
@@ -144,8 +149,13 @@ func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAnd
 		TotalRounds:    10,
 	}
 	url := suite.server.URL + HTTP_API_V1_PREFIX + "/game"
+    mockGameObject := db.Game{
+        PlayerCount:  1,
+    }
+    suite.dbMock.On("GetGameById", mock.Anything).Return(&mockGameObject)
 	suite.dbMock.On("CreateNewGame", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-    suite.stateMock.On("SetGameState", mock.Anything, mock.Anything).Return(nil)
+    suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{}, nil)
+	suite.stateMock.On("SetGameState", mock.Anything, mock.Anything).Return(nil)
 	createGameRequestBody, err := json.Marshal(createGameRequest)
 	suite.Nil(err, "Failed to create CreateGame request body")
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(createGameRequestBody))
@@ -164,8 +174,9 @@ func (suite *GameServerTestSuite) TestPlayersJoin() {
 	}
 	joiningPlayerName := "player1"
 	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
+    suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{}, nil)
 	suite.dbMock.On("AddPlayerToGame", mockGameObject.GameId, joiningPlayerName, mock.Anything).Return(nil)
-    suite.stateMock.On("GetGameState", mock.Anything).Return(state.InitGameState(mockGameObject.GameId, nil), nil)
+	suite.stateMock.On("GetGameState", mock.Anything).Return(state.InitGameState(mockGameObject.GameId, suite.dbMock), nil)
 	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s", mockGameObject.GameId)
 	join_request, _ := json.Marshal(parser.JoinGameRequest{Player: joiningPlayerName})
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(join_request))
@@ -200,7 +211,7 @@ func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
 
 func (suite *GameServerTestSuite) TestPlayerInput() {
 	mockGameObject := db.Game{
-		GameId:       "xxxxxx",
+		GameId: "xxxxxx",
 	}
 	mockPlayerObject := db.Player{
 		Name:      "Player1",
@@ -209,7 +220,9 @@ func (suite *GameServerTestSuite) TestPlayerInput() {
 		AuthToken: "dummy-token",
 	}
 	suite.dbMock.On("GetGamePlayerByToken", mockGameObject.GameId, mockPlayerObject.AuthToken).Return(&mockPlayerObject)
-    suite.stateMock.On("GetGameState", mock.Anything).Return(state.InitGameState(mockGameObject.GameId, nil), nil)
+	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
+    suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{}, nil)
+	suite.stateMock.On("GetGameState", mock.Anything).Return(state.InitGameState(mockGameObject.GameId, suite.dbMock), nil)
 	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/connect/game/%s", mockGameObject.GameId)
 	url = strings.ReplaceAll(url, "http:", "ws:")
 	header := http.Header{}

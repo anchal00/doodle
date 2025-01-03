@@ -74,6 +74,16 @@ func (s *SqliteStore) GetGamePlayerByToken(gameId, token string) *Player {
 	return &Player{}
 }
 
+func (s *SqliteStore) GetGamePlayers(gameId string) ([]Player, error) {
+	players := []Player{}
+	sql := `SELECT * FROM players WHERE game_id = ?`
+	err := s.Conn.Get(players, sql, gameId)
+	if err != nil {
+		return nil, err
+	}
+	return players, nil
+}
+
 func (s *SqliteStore) GetGamePlayerByName(gameId, playerName string) Player {
 	return Player{}
 }

@@ -5,8 +5,8 @@ import (
 )
 
 type StateStore interface {
-    GetGameState(gameId string) (*GameState, error)
-    SetGameState(gameId string, gs *GameState)
+	GetGameState(gameId string) (*GameState, error)
+	SetGameState(gameId string, gs *GameState)
 }
 
 type InMemoryGameStateStore struct {
@@ -28,4 +28,3 @@ func (i InMemoryGameStateStore) GetGameState(gameId string) (*GameState, error) 
 func (i InMemoryGameStateStore) SetGameState(gameId string, state *GameState) {
 	i.store[gameId] = state
 }
-

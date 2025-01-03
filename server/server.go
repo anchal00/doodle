@@ -147,7 +147,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 		s.Logger.Error("CreateNewGame request failed", err)
 		return
 	}
-	s.GameState.SetGameState(gameId, state.InitGameState(gameId, &s.Db))
+	s.GameState.SetGameState(gameId, state.InitGameState(gameId, s.Db))
 	// TODO: The player who created the game needs to connect via ws now
 	// to be able to receieve updates of the others joining etc.
 	respBody, err := json.Marshal(parser.CreateGameResponse{GameId: gameId})
