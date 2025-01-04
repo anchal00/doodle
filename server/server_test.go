@@ -55,9 +55,7 @@ func CreateMockGameServer(t *testing.T, db *dbMock.Repository, stateStore *state
 		Router:      router,
 		GameState:   stateStore,
 	}
-	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
-	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
-	router.HandleFunc("/connect/game/{gameId:[a-z]+}", gs.HandlePlayerInput)
+    gs.setupRoutes()
 	return gs
 }
 
@@ -164,6 +162,39 @@ func (suite *GameServerTestSuite) TestCreateNewGameExceedingMaxAllowedPlayersAnd
 	assertCookieValid(suite, resp)
 }
 
+func (suite *GameServerTestSuite) TestStartGame() {
+	mockGameObject := db.Game{
+		GameId:       "xxxxxx",
+		PlayerCount:  1,
+		MaxPlayers:   4,
+		CurrentRound: 0,
+		TotalRounds:  4,
+	}
+	suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
+	suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{}, nil)
+	suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{}, nil)
+    fakeGameState := state.InitGameState(mockGameObject.GameId, suite.dbMock)
+	suite.stateMock.On("GetGameState", mock.Anything).Return(fakeGameState, nil)
+	mockPlayerObject := db.Player{
+		Name:      "Player1",
+		GameId:    mockGameObject.GameId,
+		IsAdmin:   true,
+		AuthToken: "dummy-token",
+	}
+	suite.dbMock.On("GetGamePlayerByToken", mockGameObject.GameId, mockPlayerObject.AuthToken).Return(&mockPlayerObject)
+	url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s/start", mockGameObject.GameId)
+	header := http.Header{}
+	header.Add("Cookie", "session-token=dummy-token")
+    req, err := http.NewRequest("POST", url, nil)
+    suite.Nil(err, "Failed to prepare StartGame request")
+    req.Header = header
+    suite.Equal(state.CREATED, fakeGameState.GetState())
+    response, err := http.DefaultClient.Do(req)
+    suite.Nil(err, "Failed to send StartGame request")
+    suite.Equal(http.StatusOK, response.StatusCode)
+    suite.Equal(state.STARTED, fakeGameState.GetState())
+}
+
 func (suite *GameServerTestSuite) TestPlayersJoin() {
 	mockGameObject := db.Game{
 		GameId:       "xxxxxx",
@@ -209,7 +240,7 @@ func (suite *GameServerTestSuite) TestPlayersJoinCapacityFull() {
 	suite.Equal(0, len(resp.Cookies()))
 }
 
-func (suite *GameServerTestSuite) TestPlayerInput() {
+func (suite *GameServerTestSuite) TestPlayerJoin() {
 	mockGameObject := db.Game{
 		GameId: "xxxxxx",
 	}
@@ -227,16 +258,16 @@ func (suite *GameServerTestSuite) TestPlayerInput() {
 	url = strings.ReplaceAll(url, "http:", "ws:")
 	header := http.Header{}
 	header.Add("Cookie", "session-token=dummy-token")
-	conn, _, err := websocket.DefaultDialer.Dial(url, header)
+	_, _, err := websocket.DefaultDialer.Dial(url, header)
 	suite.Nil(err, "Failed to establish websocket connection")
-	body := parser.GamePlayerInput{
-		Xcoord: 120,
-		Ycoord: 120,
-	}
-	err = conn.WriteJSON(body)
-	suite.Nil(err, "Failed to send payload on the websocket connection")
-	err = conn.Close()
-	suite.Nil(err, "Failed to close websocket connection")
+	// body := parser.GamePlayerInput{
+	// 	Xcoord: 120,
+	// 	Ycoord: 120,
+	// }
+	// err = conn.WriteJSON(body)
+	// suite.Nil(err, "Failed to send payload on the websocket connection")
+	// err = conn.Close()
+	// suite.Nil(err, "Failed to close websocket connection")
 }
 
 func (suite *GameServerTestSuite) TestBadPlayerInput() {

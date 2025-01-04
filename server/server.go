@@ -283,11 +283,15 @@ func NewGameServer(port string) (*GameServer, error) {
 		Router:    router,
 		GameState: state.NewInMemoryGameStore(),
 	}
-	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
-	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
-	router.HandleFunc("/game/{gameId:[a-z]+}/start", gs.StartGame).Methods("POST")
-	router.HandleFunc("/connect/game/{gameId:[a-z]+}", gs.Connect)
+    gs.setupRoutes()
 	return gs, nil
+}
+
+func (s *GameServer) setupRoutes() {
+	s.Router.HandleFunc("/game", s.CreateNewGame).Methods("POST")
+	s.Router.HandleFunc("/game/{gameId:[a-z]+}", s.JoinGame).Methods("POST")
+	s.Router.HandleFunc("/game/{gameId:[a-z]+}/start", s.StartGame).Methods("POST")
+	s.Router.HandleFunc("/connect/game/{gameId:[a-z]+}", s.Connect)
 }
 
 func createSessionToken() (string, error) {

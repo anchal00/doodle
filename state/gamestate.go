@@ -11,6 +11,13 @@ import (
 	"github.com/hashicorp/go-set/v3"
 )
 
+type state int
+
+const (
+    CREATED state = iota
+    STARTED
+)
+
 type GameState struct {
 	turnQueue    []string
 	gameId       string
@@ -20,7 +27,9 @@ type GameState struct {
 	maxRounds    uint8
 	players      set.Set[string]
     mut         *sync.Mutex
-    log         logger.Logger
+    st           state
+    msgQ         chan []byte
+    log          logger.Logger
 }
 
 func InitGameState(gameId string, database db.Repository) *GameState {
@@ -30,24 +39,59 @@ func InitGameState(gameId string, database db.Repository) *GameState {
 		connections: make(map[string]*websocket.Conn),
 		db:          database,
         players:     set.Set[string]{},
-        mut: &sync.Mutex{},
-        log: logger.New(fmt.Sprintf("GameStateLogger %s", gameId)),
+        mut:         &sync.Mutex{},
+        st:          CREATED,
+        msgQ:        make(chan []byte),
+        log:         logger.New(fmt.Sprintf("GameStateLogger %s", gameId)),
 	}
     gs.Refresh()
     return gs
 }
 
+func (g *GameState) GetState() state { return g.st }
+
+func (g *GameState) StartGameLoop() {
+    g.mut.Lock()
+    g.st = STARTED
+    g.mut.Unlock()
+    for {
+        go g.processMessages()
+        for player := range g.players.Items() {
+            conx := g.connections[player]
+            go g.handleInput(player, conx)
+        }
+    }
+}
+
 func (g *GameState) broadcast(data interface{}) {}
 
-func (g *GameState) HandleInput(input []byte) {
-    jsonMap := make(map[string]interface{})
-    err := json.Unmarshal(input, &jsonMap)
-    if err != nil {
-        g.log.Error("Failed to deserialize input", err)
-        return
+func (g *GameState) processMessages() {
+    for {
+        message := <- g.msgQ
+        jsonMap := make(map[string]interface{})
+        err := json.Unmarshal(message, &jsonMap)
+        if err != nil {
+            g.log.Error("Failed to deserialize message", err)
+            return
+        }
+        // TODO: Validate and process input
+        g.log.Info("Message processed successfully")
     }
-    // TODO: Validate and process input
-    g.log.Info("Input handled successfully")
+}
+
+func (g *GameState) handleInput(player string, c *websocket.Conn) {
+	for {
+		_, msg, err := c.ReadMessage()
+		g.log.Info(fmt.Sprintf("Received data from player %s", player))
+		if err != nil {
+			g.log.Info(fmt.Sprintf("Player %s disconnected", player))
+            c.Close()
+			// Delete from Db
+			// gs.RemoveConnection(player.Name)
+			return
+		}
+        g.msgQ <- msg
+	}
 }
 
 func (g *GameState) Refresh() {
