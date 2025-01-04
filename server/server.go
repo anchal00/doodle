@@ -86,7 +86,7 @@ func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byt
 	_, err := writer.Write(responseBody)
 	if err != nil {
 		s.Logger.Info("Failed to write response body")
-		writer.WriteHeader(http.StatusInternalServerError)
+		s.sendResponse(writer, nil, http.StatusInternalServerError)
 		return
 	}
 }
@@ -94,7 +94,7 @@ func (s *GameServer) sendResponse(writer http.ResponseWriter, responseBody []byt
 func (s *GameServer) attachSessionToken(writer http.ResponseWriter) (string, error) {
 	token, err := createSessionToken()
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
+		s.sendResponse(writer, nil, http.StatusInternalServerError)
 		s.Logger.Error("CreateNewGame request failed: Unable to create session token", err)
 		return "", err
 	}
@@ -116,19 +116,19 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	s.Logger.Info("Player is creating a new game")
 	data, err := s.ReadRequestBody(request)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	gameRequest, err := parser.ParseCreateGameRequest(data)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		s.Logger.Error("Failed to parse new game request", err)
 		return
 	}
 	gameRequest.Player = strings.TrimSpace(gameRequest.Player)
 
 	if !isValidNewGameRequest(*gameRequest) {
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		s.Logger.Error("Bad game request", nil)
 		return
 	}
@@ -143,7 +143,7 @@ func (s *GameServer) CreateNewGame(writer http.ResponseWriter, request *http.Req
 	}
 	err = s.Db.CreateNewGame(gameId, gameRequest.Player, authToken, gameRequest.MaxPlayerCount, gameRequest.TotalRounds)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		s.Logger.Error("CreateNewGame request failed", err)
 		return
 	}
@@ -163,24 +163,24 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 	s.Logger.Info(fmt.Sprintf("Player is joining game %s", gameId))
 	data, err := s.ReadRequestBody(request)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	joinGameRequest, err := parser.ParseJoinGameRequest(data)
 	if err != nil {
 		s.Logger.Error("Failed to parse join game request", err)
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	game := s.Db.GetGameById(gameId)
 	if game == nil {
 		s.Logger.Error("Unrecognized game id", err)
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	if game.PlayerCount == game.MaxPlayers {
 		s.Logger.Debug("Couldn't add player to the game, capacity full")
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	authToken, err := s.attachSessionToken(writer)
@@ -190,13 +190,13 @@ func (s *GameServer) JoinGame(writer http.ResponseWriter, request *http.Request)
 	}
 	if err := s.Db.AddPlayerToGame(gameId, joinGameRequest.Player, authToken); err != nil {
 		s.Logger.Error("Failed to process join game request", err)
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	gs, err := s.GameState.GetGameState(gameId)
 	if err != nil {
 		s.Logger.Error("GameStateError", err)
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	gs.Refresh()
@@ -224,36 +224,47 @@ func (s *GameServer) authorizePlayer(gameId string, request *http.Request) (*db.
 	return player, nil
 }
 
-func (s *GameServer) HandlePlayerInput(writer http.ResponseWriter, request *http.Request) {
+func (s *GameServer) StartGame(writer http.ResponseWriter, request *http.Request) {
+	gameId := mux.Vars(request)["gameId"]
+	player, err := s.authorizePlayer(gameId, request)
+	if err != nil {
+		s.Logger.Error("Malformed cookie", err)
+		s.sendResponse(writer, nil, http.StatusInternalServerError)
+		return
+	}
+	if !player.IsAdmin {
+		s.Logger.Error("Attempt to start the game from a Non-Admin player", err)
+		s.sendResponse(writer, nil, http.StatusForbidden)
+		return
+	}
+	gs, err := s.GameState.GetGameState(gameId)
+	if err != nil {
+		s.Logger.Error("GameStateError", err)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
+		return
+	}
+	go gs.StartGameLoop()
+	s.sendResponse(writer, nil, http.StatusOK)
+}
+
+func (s *GameServer) Connect(writer http.ResponseWriter, request *http.Request) {
 	gameId := mux.Vars(request)["gameId"]
 	s.Logger.Info(fmt.Sprintf("Player is sending an update to game %s", gameId))
 	// Authorize player
 	player, err := s.authorizePlayer(gameId, request)
 	if err != nil {
 		s.Logger.Error("Malformed cookie", err)
-		writer.WriteHeader(http.StatusUnauthorized)
+		s.sendResponse(writer, nil, http.StatusInternalServerError)
 		return
 	}
 	wssConn := s.UpgradeToWebsocket(writer, request)
 	gs, err := s.GameState.GetGameState(gameId)
 	if err != nil {
 		s.Logger.Error("GameStateError", err)
-		writer.WriteHeader(http.StatusBadRequest)
+		s.sendResponse(writer, nil, http.StatusBadRequest)
 		return
 	}
 	gs.AddConnection(player.Name, wssConn)
-	defer wssConn.Close()
-	for {
-		_, msg, err := wssConn.ReadMessage()
-		s.Logger.Info("Received data from a player")
-		if err != nil {
-			s.Logger.Info("Player disconnected")
-			// Delete from Db
-			// gs.RemoveConnection(player.Name)
-			return
-		}
-		gs.HandleInput(msg)
-	}
 }
 
 func NewGameServer(port string) (*GameServer, error) {
@@ -274,7 +285,8 @@ func NewGameServer(port string) (*GameServer, error) {
 	}
 	router.HandleFunc("/game", gs.CreateNewGame).Methods("POST")
 	router.HandleFunc("/game/{gameId:[a-z]+}", gs.JoinGame).Methods("POST")
-	router.HandleFunc("/connect/game/{gameId:[a-z]+}", gs.HandlePlayerInput)
+	router.HandleFunc("/game/{gameId:[a-z]+}/start", gs.StartGame).Methods("POST")
+	router.HandleFunc("/connect/game/{gameId:[a-z]+}", gs.Connect)
 	return gs, nil
 }
 
