@@ -4,6 +4,7 @@ import (
 	"doodle/db"
 	"doodle/logger"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -57,8 +58,12 @@ func (g *GameState) StartGameLoop() {
     for {
         go g.processMessages()
         for player := range g.players.Items() {
-            conx := g.connections[player]
-            go g.handleInput(player, conx)
+            if conx, exists := g.connections[player]; exists {
+                go g.tryReadingPlayerInput(player, conx)
+            } else {
+                g.log.Error(fmt.Sprintf("No connection found for player %s", player), errors.New("Connection not found"));
+                // TODO: should remove players ?
+            }
         }
     }
 }
@@ -79,7 +84,7 @@ func (g *GameState) processMessages() {
     }
 }
 
-func (g *GameState) handleInput(player string, c *websocket.Conn) {
+func (g *GameState) tryReadingPlayerInput(player string, c *websocket.Conn) {
 	for {
 		_, msg, err := c.ReadMessage()
 		g.log.Info(fmt.Sprintf("Received data from player %s", player))
@@ -116,11 +121,13 @@ func (g *GameState) Refresh() {
 }
 
 func (g *GameState) AddConnection(player string, conn *websocket.Conn) {
+    g.players.Insert(player)
 	g.connections[player] = conn
     g.log.Info(fmt.Sprintf("Connection for player %s added successfully", player))
 }
 
 func (g *GameState) RemoveConnection(player string) {
+    g.players.Remove(player)
     g.db.DeletePlayer(g.gameId, player)
 	delete(g.connections, player)
     g.log.Info(fmt.Sprintf("Connection for player %s removed successfully", player))
