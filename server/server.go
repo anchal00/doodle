@@ -283,7 +283,7 @@ func NewGameServer(port string) (*GameServer, error) {
 		Router:    router,
 		GameState: state.NewInMemoryGameStore(),
 	}
-    gs.setupRoutes()
+	gs.setupRoutes()
 	return gs, nil
 }
 

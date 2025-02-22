@@ -55,7 +55,7 @@ func CreateMockGameServer(t *testing.T, db *dbMock.Repository, stateStore *state
 		Router:      router,
 		GameState:   stateStore,
 	}
-    gs.setupRoutes()
+	gs.setupRoutes()
 	return gs
 }
 
@@ -166,41 +166,45 @@ func (suite *GameServerTestSuite) TestStartGame() {
 	tests := []struct {
 		description        string
 		isAdmin            bool
-        expectedStatusCode int
+		expectedStatusCode int
 	}{
 		{"Test admin can start game", true, http.StatusOK},
 		{"Test non-admin can't start game", false, http.StatusForbidden},
 	}
-    for i, test := range tests {
-        suite.Run(test.description, func() {
-            mockGameObject := db.Game{
-                GameId:       "xxxxxx",
-            }
-            mockPlayerObject := db.Player{
-                Name:      "Player1",
-                GameId:    mockGameObject.GameId,
-                IsAdmin:   test.isAdmin,
-                AuthToken: fmt.Sprintf("dummy-token-%d", i),
-            }
-            suite.dbMock.On("GetGamePlayerByToken", mockGameObject.GameId, mockPlayerObject.AuthToken).Return(&mockPlayerObject)
-            suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
-            suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{mockPlayerObject}, nil)
-            fakeGameState := state.InitGameState(mockGameObject.GameId, suite.dbMock)
-            suite.stateMock.On("GetGameState", mock.Anything).Return(fakeGameState, nil)
-            url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s/start", mockGameObject.GameId)
-            header := http.Header{}
-            header.Add("Cookie", fmt.Sprintf("session-token=%s", mockPlayerObject.AuthToken))
-            req, err := http.NewRequest("POST", url, nil)
-            suite.Nil(err, "Failed to prepare StartGame request")
-            req.Header = header
-            suite.Equal(state.CREATED, fakeGameState.GetState())
-            response, err := http.DefaultClient.Do(req)
-            suite.Nil(err, "Failed to send StartGame request")
-            suite.Equal(test.expectedStatusCode, response.StatusCode)
-            if test.expectedStatusCode == http.StatusOK { suite.Equal(state.STARTED, fakeGameState.GetState()) }
-            if test.expectedStatusCode == http.StatusForbidden { suite.Equal(state.CREATED, fakeGameState.GetState()) }
-        })
-    }
+	for i, test := range tests {
+		suite.Run(test.description, func() {
+			mockGameObject := db.Game{
+				GameId: "xxxxxx",
+			}
+			mockPlayerObject := db.Player{
+				Name:      "Player1",
+				GameId:    mockGameObject.GameId,
+				IsAdmin:   test.isAdmin,
+				AuthToken: fmt.Sprintf("dummy-token-%d", i),
+			}
+			suite.dbMock.On("GetGamePlayerByToken", mockGameObject.GameId, mockPlayerObject.AuthToken).Return(&mockPlayerObject)
+			suite.dbMock.On("GetGameById", mockGameObject.GameId).Return(&mockGameObject)
+			suite.dbMock.On("GetGamePlayers", mock.Anything).Return([]db.Player{mockPlayerObject}, nil)
+			fakeGameState := state.InitGameState(mockGameObject.GameId, suite.dbMock)
+			suite.stateMock.On("GetGameState", mock.Anything).Return(fakeGameState, nil)
+			url := suite.server.URL + HTTP_API_V1_PREFIX + fmt.Sprintf("/game/%s/start", mockGameObject.GameId)
+			header := http.Header{}
+			header.Add("Cookie", fmt.Sprintf("session-token=%s", mockPlayerObject.AuthToken))
+			req, err := http.NewRequest("POST", url, nil)
+			suite.Nil(err, "Failed to prepare StartGame request")
+			req.Header = header
+			suite.Equal(state.CREATED, fakeGameState.GetState())
+			response, err := http.DefaultClient.Do(req)
+			suite.Nil(err, "Failed to send StartGame request")
+			suite.Equal(test.expectedStatusCode, response.StatusCode)
+			if test.expectedStatusCode == http.StatusOK {
+				suite.Equal(state.STARTED, fakeGameState.GetState())
+			}
+			if test.expectedStatusCode == http.StatusForbidden {
+				suite.Equal(state.CREATED, fakeGameState.GetState())
+			}
+		})
+	}
 
 }
 
