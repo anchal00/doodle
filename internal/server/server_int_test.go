@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-	"doodle/parser"
+	"github.com/anchal00/doodle/parser"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"

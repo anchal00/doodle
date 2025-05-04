@@ -2,12 +2,12 @@ package server
 
 import (
 	"bytes"
-	"doodle/db"
-	dbMock "doodle/db/mocks"
-	"doodle/logger"
-	"doodle/parser"
-	"doodle/state"
-	stateStoreMock "doodle/state/mocks"
+	"github.com/anchal00/doodle/db"
+	dbMock "github.com/anchal00/doodle/db/mocks"
+	"github.com/anchal00/doodle/logger"
+	"github.com/anchal00/doodle/parser"
+	"github.com/anchal00/doodle/state"
+	stateStoreMock "github.com/anchal00/doodle/state/mocks"
 	"encoding/json"
 	"fmt"
 	"io"

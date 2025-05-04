@@ -1,8 +1,8 @@
 package state
 
 import (
-	"doodle/db"
-	"doodle/logger"
+	"github.com/anchal00/doodle/db"
+	"github.com/anchal00/doodle/logger"
 	"encoding/json"
 	"errors"
 	"fmt"

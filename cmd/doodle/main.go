@@ -4,7 +4,7 @@
 package main
 
 import (
-	"doodle/server"
+	"github.com/anchal00/doodle/server"
 	"log/slog"
 	"os"
 
