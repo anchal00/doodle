@@ -1,7 +1,8 @@
+//go:generate mockery --with-expecter=true --name=Repository --output=./mocks
 package db
 
 import (
-	"doodle/logger"
+	"github.com/anchal00/doodle/internal/logger"
 	_ "github.com/mattn/go-sqlite3"
 )
 

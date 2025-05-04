@@ -1,4 +1,4 @@
-module doodle
+module github.com/anchal00/doodle
 
 go 1.23.0
 

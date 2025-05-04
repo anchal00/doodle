@@ -1,10 +1,10 @@
 .PHONY: drop-db init-db gen-mocks test
 
 build:
-	go build -o bin/
+	go build -o bin/ ./cmd/doodle
 
 mocks:
-	go generate .
+	go generate ./...
 
 lint:
 	golangci-lint run
