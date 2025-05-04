@@ -1,3 +1,4 @@
+//go:generate mockery --with-expecter=true --name=StateStore --output=./mocks
 package state
 
 import (

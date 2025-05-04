@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/anchal00/doodle/logger"
+	"github.com/anchal00/doodle/internal/logger"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"

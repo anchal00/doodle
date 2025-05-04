@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-	"github.com/anchal00/doodle/parser"
+	"github.com/anchal00/doodle/internal/parser"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 }
 
 func setup() *GameServer {
-	err := godotenv.Load("../test.local")
+	err := godotenv.Load("../../test.local")
 	if err != nil {
 		log.Print("Failed to load environment variables")
 		return nil

@@ -1,3 +1,4 @@
+//go:generate mockery --with-expecter=true --name=Logger --output=./mocks
 package logger
 
 import (

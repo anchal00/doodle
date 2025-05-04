@@ -1,10 +1,7 @@
-//go:generate mockery --with-expecter=true --name=Repository --dir=db --output=db/mocks
-//go:generate mockery --with-expecter=true --name=Logger --dir=logger --output=logger/mocks
-//go:generate mockery --with-expecter=true --name=StateStore --dir=state --output=state/mocks
 package main
 
 import (
-	"github.com/anchal00/doodle/server"
+	"github.com/anchal00/doodle/internal/server"
 	"log/slog"
 	"os"
 

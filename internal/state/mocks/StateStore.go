@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	state "github.com/anchal00/doodle/state"
+	state "github.com/anchal00/doodle/internal/state"
 	mock "github.com/stretchr/testify/mock"
 )
 

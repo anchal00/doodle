@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	db "github.com/anchal00/doodle/db"
+	db "github.com/anchal00/doodle/internal/db"
 	mock "github.com/stretchr/testify/mock"
 )
 

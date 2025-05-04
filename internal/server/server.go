@@ -2,10 +2,10 @@ package server
 
 import (
 	crypto "crypto/rand"
-	"github.com/anchal00/doodle/db"
-	"github.com/anchal00/doodle/logger"
-	"github.com/anchal00/doodle/parser"
-	"github.com/anchal00/doodle/state"
+	"github.com/anchal00/doodle/internal/db"
+	"github.com/anchal00/doodle/internal/logger"
+	"github.com/anchal00/doodle/internal/parser"
+	"github.com/anchal00/doodle/internal/state"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
